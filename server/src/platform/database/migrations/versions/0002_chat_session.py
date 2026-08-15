@@ -17,8 +17,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["dataset_conversation_id"],
-            ["dataset_conversation.id"],
-            name="fk_chat_session_dataset_conversation",
+            ["conversation.id"],
+            name="fk_chat_session_conversation",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_chat_session"),
     )
