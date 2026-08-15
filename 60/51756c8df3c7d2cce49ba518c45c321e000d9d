@@ -1,0 +1,14 @@
+server/src/platform/database/migrations/versions/0002_chat_session.py
+  h_ba3efde196eb39 20-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6051756c8df3c7d2cce49ba518c45c321e000d9d",
+  "prompts": {},
+  "humans": {
+    "h_ba3efde196eb39": {
+      "author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
