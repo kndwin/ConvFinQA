@@ -3,12 +3,14 @@ from contextlib import asynccontextmanager
 from dishka import make_async_container
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
 from src.module.chat_sessions.chat_sessions_router import router as chat_sessions_router
 from src.module.dataset_conversations.dataset_conversations_router import (
     router as dataset_conversations_router,
 )
+from src.platform.config import config
 from src.platform.database import database_lifespan, engine
 from src.platform.dependency_injection import ApplicationProvider
 from src.platform.observability import configure_observability, observability_lifespan
@@ -31,6 +33,19 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     configure_observability(app, engine)
+    origins = [origin.strip() for origin in config.cors_origins.split(",") if origin.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    @app.get("/health", include_in_schema=False)
+    async def health():
+        return {"status": "ok"}
 
     @app.get("/docs", include_in_schema=False)
     async def scalar_docs():

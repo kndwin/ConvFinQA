@@ -4,15 +4,23 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
-from ag_ui.core import EventType, RunAgentInput, UserMessage
+from ag_ui.core import AssistantMessage, EventType, RunAgentInput, UserMessage
+from agents import Agent
+from agents.items import ToolCallItem, ToolCallOutputItem
+from agents.stream_events import RunItemStreamEvent
 from openai import AsyncOpenAI
+from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.module.chat_sessions.agent.openai_chat_agent import (
+from src.module.chat_sessions.agent.calculator_mini_chat_agent import (
     CALCULATOR_INSTRUCTIONS,
-    INSTRUCTIONS,
-    OpenAIChatAgent,
+    CalculatorMiniChatAgent,
     calculator,
+)
+from src.module.chat_sessions.agent.direct_mini_chat_agent import (
+    INSTRUCTIONS,
+    DirectMiniChatAgent,
+    _history,
     newest_user_message,
     newest_user_text,
 )
@@ -131,6 +139,17 @@ class ChatInputTests(unittest.TestCase):
 
     def test_missing_user_message(self) -> None:
         self.assertIsNone(newest_user_message(request([])))
+
+    def test_history_uses_messages_before_newest_identical_question(self) -> None:
+        question = "repeat me"
+        input_data = request(
+            [
+                UserMessage(id="old", content=question),
+                AssistantMessage(id="answer", content="an answer"),
+                UserMessage(id="new", content=question),
+            ]
+        )
+        self.assertEqual(_history(input_data, question), "user: repeat me\nassistant: an answer")
 
 
 class ChatSessionServiceTests(unittest.TestCase):
@@ -284,30 +303,37 @@ class FakeClient:
 
 
 class FakeStream:
-    def __init__(self, deltas=("Hello", " world"), final_output="Hello world", error=None):
+    def __init__(
+        self, deltas=("Hello", " world"), final_output="Hello world", error=None, events=None
+    ):
         self.deltas = deltas
         self.final_output = final_output
         self.error = error
+        self.events = events
         self.cancelled = False
 
     async def stream_events(self):
         if self.error:
             raise self.error
-        for delta in self.deltas:
-            yield SimpleNamespace(
-                type="raw_response_event",
-                data=SimpleNamespace(type="response.output_text.delta", delta=delta),
-            )
+        if self.events is not None:
+            for event in self.events:
+                yield event
+        else:
+            for delta in self.deltas:
+                yield SimpleNamespace(
+                    type="raw_response_event",
+                    data=SimpleNamespace(type="response.output_text.delta", delta=delta),
+                )
 
     def cancel(self):
         self.cancelled = True
 
 
-class OpenAIChatAgentTests(unittest.TestCase):
-    def agent(self, session, client=None):
+class MiniChatAgentTests(unittest.TestCase):
+    def agent(self, session, client=None, agent_type=DirectMiniChatAgent):
         observability = cast(Observability, NOOP_OBSERVABILITY)
         async_session = cast(AsyncSession, session)
-        return OpenAIChatAgent(
+        return agent_type(
             chat_session_repository=ChatSessionRepository(async_session, observability),
             dataset_conversation_repository=DatasetConversationRepository(
                 async_session, observability
@@ -316,7 +342,7 @@ class OpenAIChatAgentTests(unittest.TestCase):
             observability=observability,
         )
 
-    def run_agent(self, session, stream, input_data=None):
+    def run_agent(self, session, stream, input_data=None, agent_type=DirectMiniChatAgent):
         captured = {}
         client = FakeClient()
         self.last_client = client
@@ -327,18 +353,29 @@ class OpenAIChatAgentTests(unittest.TestCase):
 
         async def collect():
             events = []
-            async for event in self.agent(session, client).run(3, 7, input_data or request()):
+            async for event in self.agent(session, client, agent_type).run(
+                3, 7, input_data or request()
+            ):
                 session.sequence.append(event.type.value)
                 events.append(event)
             return events
 
         with (
             patch(
-                "src.module.chat_sessions.agent.openai_chat_agent.OpenAIProvider",
+                "src.module.chat_sessions.agent.direct_mini_chat_agent.OpenAIProvider",
                 lambda **_: object(),
             ),
             patch(
-                "src.module.chat_sessions.agent.openai_chat_agent.Runner.run_streamed", run_streamed
+                "src.module.chat_sessions.agent.direct_mini_chat_agent.Runner.run_streamed",
+                run_streamed,
+            ),
+            patch(
+                "src.module.chat_sessions.agent.calculator_mini_chat_agent.OpenAIProvider",
+                lambda **_: object(),
+            ),
+            patch(
+                "src.module.chat_sessions.agent.calculator_mini_chat_agent.Runner.run_streamed",
+                run_streamed,
             ),
         ):
             events = asyncio.run(collect())
@@ -397,13 +434,17 @@ class OpenAIChatAgentTests(unittest.TestCase):
 
     def test_calculator_mini_uses_one_calculator_and_four_turns(self):
         session = FakeSession(agent_variant="calculator-mini")
-        events, captured, _ = self.run_agent(session, FakeStream())
+        events, captured, _ = self.run_agent(
+            session, FakeStream(), agent_type=CalculatorMiniChatAgent
+        )
         self.assertEqual(events[-1].type, EventType.RUN_FINISHED)
         agent = captured["agent"]
         self.assertEqual(agent.name, "ConvFinQA calculator-mini document assistant")
         self.assertEqual(agent.model, "gpt-5-mini")
         self.assertEqual(agent.instructions, CALCULATOR_INSTRUCTIONS)
         self.assertEqual(agent.tools, [calculator])
+        self.assertEqual(agent.model_settings.tool_choice, "required")
+        self.assertFalse(agent.model_settings.parallel_tool_calls)
         self.assertEqual(captured["kwargs"]["max_turns"], 4)
         run_config = captured["kwargs"]["run_config"]
         self.assertEqual(run_config.model, "gpt-5-mini")
@@ -414,6 +455,105 @@ class OpenAIChatAgentTests(unittest.TestCase):
             '<document_context>\n{"source":"full document"}\n'
             "</document_context>\n<user_question>\nquestion\n</user_question>",
         )
+
+    def test_calculator_tool_events_map_to_ag_ui_events(self):
+        assistant = Agent(name="test calculator agent")
+        raw_call = ResponseFunctionToolCall(
+            arguments='{"operation":"subtract","a":-31,"b":-34}',
+            call_id="call-1",
+            name="calculator",
+            type="function_call",
+            status="completed",
+        )
+        stream = FakeStream(
+            final_output="3 million",
+            events=[
+                RunItemStreamEvent(
+                    name="tool_called", item=ToolCallItem(agent=assistant, raw_item=raw_call)
+                ),
+                RunItemStreamEvent(
+                    name="tool_output",
+                    item=ToolCallOutputItem(
+                        agent=assistant,
+                        raw_item={
+                            "call_id": "call-1",
+                            "output": "3",
+                            "type": "function_call_output",
+                        },
+                        output=3,
+                    ),
+                ),
+                SimpleNamespace(
+                    type="raw_response_event",
+                    data=SimpleNamespace(type="response.output_text.delta", delta="3 million"),
+                ),
+            ],
+        )
+        session = FakeSession(agent_variant="calculator-mini")
+        events, _, _ = self.run_agent(session, stream, agent_type=CalculatorMiniChatAgent)
+
+        relevant = [
+            event
+            for event in events
+            if event.type
+            in {
+                EventType.TOOL_CALL_START,
+                EventType.TOOL_CALL_ARGS,
+                EventType.TOOL_CALL_END,
+                EventType.TOOL_CALL_RESULT,
+                EventType.TEXT_MESSAGE_CONTENT,
+            }
+        ]
+        self.assertEqual(
+            [event.type for event in relevant],
+            [
+                EventType.TOOL_CALL_START,
+                EventType.TOOL_CALL_ARGS,
+                EventType.TOOL_CALL_END,
+                EventType.TOOL_CALL_RESULT,
+                EventType.TEXT_MESSAGE_CONTENT,
+            ],
+        )
+        start, args, end, result, content = relevant
+        assistant_start = next(
+            event for event in events if event.type == EventType.TEXT_MESSAGE_START
+        )
+        self.assertEqual(start.tool_call_id, "call-1")
+        self.assertEqual(start.tool_call_name, "calculator")
+        self.assertEqual(start.parent_message_id, assistant_start.message_id)
+        self.assertEqual(args.tool_call_id, "call-1")
+        self.assertEqual(args.delta, '{"operation":"subtract","a":-31,"b":-34}')
+        self.assertEqual(end.tool_call_id, "call-1")
+        self.assertEqual(result.tool_call_id, "call-1")
+        self.assertEqual(result.content, "3")
+        self.assertEqual(result.role, "tool")
+        self.assertNotEqual(result.message_id, assistant_start.message_id)
+        self.assertEqual(content.delta, "3 million")
+        self.assertEqual(
+            [(message.role, message.content) for message in session.added],
+            [("user", "question"), ("assistant", "3 million")],
+        )
+        self.assertEqual(events[-1].type, EventType.RUN_FINISHED)
+
+    def test_calculator_rejects_non_calculator_variant_without_runner(self):
+        session = FakeSession(agent_variant="direct-mini")
+        runner = patch(
+            "src.module.chat_sessions.agent.calculator_mini_chat_agent.Runner.run_streamed"
+        )
+
+        async def collect():
+            return [
+                event
+                async for event in self.agent(session, FakeClient(), CalculatorMiniChatAgent).run(
+                    3, 7, request()
+                )
+            ]
+
+        with runner as run_streamed:
+            events = asyncio.run(collect())
+        self.assertEqual(events[-1].code, "run_error")
+        run_streamed.assert_not_called()
+        self.assertEqual([message.role for message in session.added], ["user"])
 
     def test_calculator_operations_and_schema(self):
         calculate = cast(Any, calculator.on_invoke_tool)._get_wrapped_callable()

@@ -58,6 +58,10 @@ For agentic chat, copy `server/.env.example` to `server/.env` and set
 `OPENAI_API_KEY`. The backend uses the OpenAI Agents SDK and streams AG-UI
 events to the TanStack AI client; PostgreSQL stores sessions and messages.
 
+Dataset chat uses separate complete `DirectMiniChatAgent` and
+`CalculatorMiniChatAgent` files. Tool-call events are live-only; persistence
+stores user and final assistant text, so reloads do not restore tool activity.
+
 Run backend tests with:
 
 ```sh

@@ -29,6 +29,20 @@ import {
 import type { DatasetConversation } from "./dataset-conversation.model";
 
 type TextPart = { type: "text"; content: string };
+type ToolCallPart = {
+  type: "tool-call";
+  id: string;
+  name: string;
+  arguments: unknown;
+  state: string;
+};
+type ToolResultPart = {
+  type: "tool-result";
+  toolCallId: string;
+  content: unknown;
+  state: string;
+  error?: unknown;
+};
 type InitialMessage = { id: string; role: "user" | "assistant"; parts: TextPart[] };
 const agentVariants = ["direct-mini", "calculator-mini"] as const satisfies readonly AgentVariant[];
 const agentVariantLabels: Record<AgentVariant, string> = {
@@ -261,7 +275,31 @@ export function AgentReplyingIndicator() {
 function hasVisibleTextPart(message: { parts: readonly { type: string; content?: unknown }[] }) {
   return message.parts.some(
     (part) =>
-      part.type === "text" && typeof part.content === "string" && part.content.trim().length > 0,
+      (part.type === "text" &&
+        typeof part.content === "string" &&
+        part.content.trim().length > 0) ||
+      part.type === "tool-call" ||
+      part.type === "tool-result",
+  );
+}
+
+export function ToolActivity({ part }: { part: ToolCallPart | ToolResultPart }) {
+  if (part.type === "tool-call") {
+    return (
+      <div className="my-1 rounded border bg-muted/40 p-2 text-xs">
+        <strong>Tool: {part.name}</strong> · {part.state}
+        <pre className="mt-1 whitespace-pre-wrap">
+          {typeof part.arguments === "string" ? part.arguments : JSON.stringify(part.arguments)}
+        </pre>
+      </div>
+    );
+  }
+  return (
+    <div className="my-1 rounded border p-2 text-xs">
+      <strong>Tool result</strong> · {part.state}
+      <div>{typeof part.content === "string" ? part.content : JSON.stringify(part.content)}</div>
+      {part.error ? <div className="text-destructive">{String(part.error)}</div> : null}
+    </div>
   );
 }
 
@@ -324,7 +362,12 @@ function ChatTranscript({
               <div className="typeset typeset-docs max-w-[37em]">
                 {m.parts.map((part) =>
                   part.type === "text" ? (
-                    <span key={`${m.id}-${part.content}`}>{part.content}</span>
+                    <span key={`${m.id}-${part.type}`}>{part.content}</span>
+                  ) : part.type === "tool-call" || part.type === "tool-result" ? (
+                    <ToolActivity
+                      key={part.type === "tool-call" ? part.id : part.toolCallId}
+                      part={part as ToolCallPart | ToolResultPart}
+                    />
                   ) : null,
                 )}
               </div>

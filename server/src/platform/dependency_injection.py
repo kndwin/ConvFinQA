@@ -5,7 +5,8 @@ from dishka import Provider, Scope, provide
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.module.chat_sessions.agent.openai_chat_agent import OpenAIChatAgent
+from src.module.chat_sessions.agent.calculator_mini_chat_agent import CalculatorMiniChatAgent
+from src.module.chat_sessions.agent.direct_mini_chat_agent import DirectMiniChatAgent
 from src.module.chat_sessions.chat_sessions_repository import ChatSessionRepository
 from src.module.chat_sessions.chat_sessions_service import ChatSessionService
 from src.module.dataset_conversations.dataset_conversations_repository import (
@@ -75,14 +76,29 @@ class ApplicationProvider(Provider):
         )
 
     @provide(scope=Scope.REQUEST)
-    def openai_chat_agent(
+    def direct_mini_chat_agent(
         self,
         chat_sessions_repository: ChatSessionRepository,
         dataset_conversation_repository: DatasetConversationRepository,
         client: AsyncOpenAI | None,
         observability: Observability,
-    ) -> OpenAIChatAgent:
-        return OpenAIChatAgent(
+    ) -> DirectMiniChatAgent:
+        return DirectMiniChatAgent(
+            chat_session_repository=chat_sessions_repository,
+            dataset_conversation_repository=dataset_conversation_repository,
+            openai_client=client,
+            observability=observability,
+        )
+
+    @provide(scope=Scope.REQUEST)
+    def calculator_mini_chat_agent(
+        self,
+        chat_sessions_repository: ChatSessionRepository,
+        dataset_conversation_repository: DatasetConversationRepository,
+        client: AsyncOpenAI | None,
+        observability: Observability,
+    ) -> CalculatorMiniChatAgent:
+        return CalculatorMiniChatAgent(
             chat_session_repository=chat_sessions_repository,
             dataset_conversation_repository=dataset_conversation_repository,
             openai_client=client,

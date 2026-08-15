@@ -10,13 +10,18 @@ uv run alembic upgrade head
 ```
 
 Set `OPENAI_API_KEY` in `.env` before starting an agent run.
-The `direct-mini` and `calculator-mini` variants always use `gpt-5-mini`; their models are not configurable.
+The `direct-mini` and `calculator-mini` variants always use `gpt-5-mini`; their
+models are not configurable.
 The API can start without a key, but chat runs return a configuration error
 until one is provided.
 
 Chat sessions persist their agent variant. The supported variants are `direct-mini`,
 which answers directly from document context, and `calculator-mini`, which can use
 a local arithmetic calculator for document-grounded calculations. Both use `gpt-5-mini`.
+
+`direct-mini` and `calculator-mini` currently have complete, separate
+implementations, with intentional duplication. Calculator tool-call UI events
+are streamed live but are not persisted or replayed after reload.
 
 Copy `.env.example` to `.env`; its local OTLP settings enable OTLP/HTTP export:
 

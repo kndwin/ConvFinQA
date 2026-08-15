@@ -1,0 +1,4 @@
+name: convfinqa
+runtime: nodejs
+description: ConvFinQA Cloudflare Pages infrastructure
+main: prod/cloudflare.ts

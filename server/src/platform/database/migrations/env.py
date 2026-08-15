@@ -5,13 +5,13 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
-from src.platform.config import config
+from src.platform.config import async_database_url, config
 from src.platform.database import models  # noqa: F401 - register SQLModel tables
 
 alembic_config = context.config
 if alembic_config.config_file_name:
     fileConfig(alembic_config.config_file_name)
-database_url = config.database_url
+database_url = async_database_url(config.database_url)
 assert database_url is not None
 # ConfigParser treats percent signs as interpolation markers.
 alembic_config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))

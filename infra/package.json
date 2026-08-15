@@ -1,0 +1,22 @@
+{
+  "name": "convfinqa-infrastructure",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "railway:plan": "railway config plan --file prod/railway.ts",
+    "railway:apply": "railway config apply --file prod/railway.ts",
+    "cloudflare:preview": "pulumi preview",
+    "cloudflare:up": "pulumi up"
+  },
+  "dependencies": {
+    "@pulumi/cloudflare": "6.19.0",
+    "@pulumi/pulumi": "3.257.0",
+    "railway": "3.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}
