@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "error", "suspicious": "warn", "perf": "warn" },
+  "plugins": ["oxc", "typescript", "import", "react", "jsx-a11y"],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "import/no-unassigned-import": "off",
+    "jsx-a11y/label-has-associated-control": "off"
+  },
+  "jsPlugins": [
+    { "name": "module-ui", "specifier": "./.lint-generated/module.ui.lint.js" },
+    { "name": "module-route", "specifier": "./.lint-generated/module.route.lint.js" }
+  ],
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    ".lint-generated/**",
+    "src/platform/api/openapi-schema.ts",
+    "src/platform/router/route-tree.gen.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["src/module/**/*.ui.tsx"],
+      "rules": { "module-ui/boundary": "error" }
+    },
+    {
+      "files": ["**/*.route.ts", "**/*.route.tsx"],
+      "rules": { "module-route/boundary": "error" }
+    }
+  ]
+}

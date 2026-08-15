@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    ".lint-generated/**",
+    "src/platform/style/typeset.css",
+    "src/platform/api/openapi-schema.ts",
+    "src/platform/router/route-tree.gen.ts"
+  ]
+}

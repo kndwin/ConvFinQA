@@ -1,0 +1,11 @@
+node_modules/
+dist/
+storybook-static/
+.lint-generated/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+/internal/otel-cli/otel-cli
