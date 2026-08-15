@@ -1,0 +1,56 @@
+README.md
+  h_ba3efde196eb39 61-64
+client/public/_redirects
+  h_ba3efde196eb39 1
+client/src/module/dataset_conversations/dataset-chat.ui.tsx
+  h_ba3efde196eb39 32-45,278-302,365-370
+infra/Pulumi.yaml
+  h_ba3efde196eb39 1-4
+infra/README.md
+  h_ba3efde196eb39 1-71
+infra/package.json
+  h_ba3efde196eb39 1-22
+infra/pnpm-lock.yaml
+  h_ba3efde196eb39 1-2152
+infra/prod/cloudflare.ts
+  h_ba3efde196eb39 1-51
+infra/prod/railway.ts
+  h_ba3efde196eb39 1-41
+infra/tsconfig.json
+  h_ba3efde196eb39 1-7
+server/README.md
+  h_ba3efde196eb39 13-14,22-25
+server/src/main.py
+  h_ba3efde196eb39 6,13,36-48
+server/src/module/chat_sessions/agent/calculator_mini_chat_agent.py
+  h_ba3efde196eb39 1-26,29-41,43-51,54,60-342
+server/src/module/chat_sessions/agent/direct_mini_chat_agent.py
+  h_ba3efde196eb39 15,19,34,44-45,47-51,54-76,78,80-81,83-98,106-112,128-129,143-144,146,167-172,178,190-194,196,220,226-229,238
+server/src/module/chat_sessions/chat_sessions_router.py
+  h_ba3efde196eb39 5,12-14,169-171,177-201,211-214
+server/src/platform/config/__init__.py
+  h_ba3efde196eb39 3,5
+server/src/platform/config/settings.py
+  h_ba3efde196eb39 16,25-35
+server/src/platform/database/database.py
+  h_ba3efde196eb39 9,11
+server/src/platform/database/migrations/env.py
+  h_ba3efde196eb39 8,14
+server/src/platform/dependency_injection.py
+  h_ba3efde196eb39 8-9,79,85-101
+server/tests/test_chat_sessions.py
+  h_ba3efde196eb39 7-10,12,15,17,19-23,143-153,306-308,312,318-326,332-333,336,345,356-358,365-373,377-378,437-439,446-447,459-557
+server/tests/test_settings.py
+  h_ba3efde196eb39 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8c29939451750f6000f661a7c8a66e522188c467",
+  "prompts": {},
+  "humans": {
+    "h_ba3efde196eb39": {
+      "author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
