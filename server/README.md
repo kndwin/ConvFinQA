@@ -10,18 +10,37 @@ uv run alembic upgrade head
 ```
 
 Set `OPENAI_API_KEY` in `.env` before starting an agent run.
-The `direct-mini` and `calculator-mini` variants always use `gpt-5-mini`; their
-models are not configurable.
+The `baseline` and `baseline-tool` approaches support all four selectable
+OpenAI models.
 The API can start without a key, but chat runs return a configuration error
 until one is provided.
 
-Chat sessions persist their agent variant. The supported variants are `direct-mini`,
-which answers directly from document context, and `calculator-mini`, which can use
-a local arithmetic calculator for document-grounded calculations. Both use `gpt-5-mini`.
+Chat sessions persist their agent approach, pinned prompt, context, and model. The
+supported approaches are `baseline`, which answers directly from document context,
+and `baseline-tool`, which must use a local arithmetic calculator for
+document-grounded calculations.
 
-`direct-mini` and `calculator-mini` currently have complete, separate
-implementations, with intentional duplication. Calculator tool-call UI events
-are streamed live but are not persisted or replayed after reload.
+Both approaches run through one shared agent-execution service and select one of two
+vertical slices. Calculator tool-call UI events are streamed live but are not
+persisted or replayed after reload.
+
+Each vertical slice owns its execution, Markdown prompts, and context selection:
+
+```text
+agent_execution/
+├── agent_execution_service.py
+├── agent_execution_runner.py
+├── agent_execution_repository.py
+├── repositories/{callbacks.py,in_memory.py}
+└── agent_approach/
+    ├── baseline/{run.py,prompts/,context/}
+    └── baseline_tool/{run.py,prompts/,context/}
+```
+
+The current prompt IDs are `baseline:v1` and `baseline-tool:v1`. Both slices
+currently select the shared `document-conversation:v1` context renderer. A session
+pins these immutable IDs when it is created, so later default changes do not alter
+an existing conversation.
 
 Copy `.env.example` to `.env`; its local OTLP settings enable OTLP/HTTP export:
 
@@ -88,6 +107,32 @@ uv run ruff check .        # lint and import sorting
 uv run ty check            # static type checking
 uv run lint-imports        # enforce the contracts in pyproject.toml
 ```
+
+## ConvFinQA evaluation slice
+
+The isolated harness under `evals/` defaults to dataset `3139`, both registered
+targets (`baseline:v1` and `baseline-tool:v1`), and model `gpt-5.6-luna`. It
+directly loads the dataset and invokes the shared agent-execution service with an
+in-memory repository; no local web server, SSE parsing, or temporary chat sessions
+are required. Production supplies a callback-backed repository bound to PostgreSQL;
+evaluation supplies an isolated in-memory repository. First validate the DeepEval
+golden shape and resolved target versions without calling a model:
+
+```bash
+uv run --group eval python -m evals.runner --dry-run
+```
+
+Run the live replay (this incurs model usage):
+
+```bash
+uv run --group eval python -m evals.runner --output-dir eval-results
+```
+
+Useful overrides include comma-separated `--dataset-ids`, `--targets`,
+`--model`, and `--dry-run`. Use `--mode remote --base-url URL` to target a
+deployed HTTP service (remote mode uses temporary sessions unless retained).
+Live runs write
+`convfinqa.json` and `convfinqa.md` to the output directory.
 
 The architectural contracts are also documented in `lint/`. Controllers call
 services, services call repositories, and schemas remain transport/data types.

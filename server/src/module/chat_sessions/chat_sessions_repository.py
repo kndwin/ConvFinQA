@@ -1,9 +1,16 @@
 import builtins
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
+from src.module.agent_execution.agent_execution_constants import (
+    DEFAULT_CONTEXT_VERSION,
+    DEFAULT_PROMPT_VERSIONS,
+)
 from src.module.chat_sessions.chat_sessions_repository_schema import (
     ChatSessionRepositoryCreateParams,
     ChatSessionRepositoryDeleteParams,
@@ -13,7 +20,12 @@ from src.module.chat_sessions.chat_sessions_repository_schema import (
     ChatSessionRepositoryPersistUserMessageParams,
     ChatSessionRepositoryUpdateParams,
 )
-from src.platform.database.models import ChatMessageTable, ChatSessionTable
+from src.platform.database.models import (
+    ChatMessageTable,
+    ChatSessionTable,
+    ChatSessionTagTable,
+    ChatSessionToTagTable,
+)
 from src.platform.observability import trace_method
 from src.platform.repository import BaseRepository
 
@@ -32,6 +44,7 @@ class ChatSessionRepository(BaseRepository):
     ) -> builtins.list[ChatSessionTable]:
         result = await self.session.execute(
             select(ChatSessionTable)
+            .options(selectinload(cast(Any, ChatSessionTable.tags)))
             .where(col(ChatSessionTable.dataset_conversation_id) == params.dataset_conversation_id)
             .order_by(col(ChatSessionTable.updated_at).desc(), col(ChatSessionTable.id).desc())
         )
@@ -40,7 +53,9 @@ class ChatSessionRepository(BaseRepository):
     @trace_method("chat_session.repository.get")
     async def get(self, params: ChatSessionRepositoryGetParams) -> ChatSessionTable | None:
         result = await self.session.execute(
-            select(ChatSessionTable).where(
+            select(ChatSessionTable)
+            .options(selectinload(cast(Any, ChatSessionTable.tags)))
+            .where(
                 col(ChatSessionTable.id) == params.chat_session_id,
                 col(ChatSessionTable.dataset_conversation_id) == params.dataset_conversation_id,
             )
@@ -96,17 +111,56 @@ class ChatSessionRepository(BaseRepository):
         await self._commit()
 
     @trace_method("chat_session.repository.create")
-    async def create(self, params: ChatSessionRepositoryCreateParams) -> ChatSessionTable:
+    async def create(
+        self, params: ChatSessionRepositoryCreateParams, *, commit: bool = True
+    ) -> ChatSessionTable:
         chat_session = ChatSessionTable(
             dataset_conversation_id=params.dataset_conversation_id,
-            agent_variant=str(params.agent_variant),
+            agent_approach=str(params.agent_approach),
+            prompt_version=DEFAULT_PROMPT_VERSIONS[params.agent_approach],
+            context_version=DEFAULT_CONTEXT_VERSION,
+            model=str(params.model),
         )
         self.session.add(chat_session)
         try:
-            await self.session.commit()
+            # Group creation can defer the transaction commit, but the session must
+            # still be persistent before it can be refreshed or referenced by a
+            # membership row. Tags also need the generated session ID.
+            if params.tags or not commit:
+                await self.session.flush()
+            if params.tags:
+                values = [tag.value for tag in params.tags]
+                await self.session.execute(
+                    postgres_insert(ChatSessionTagTable)
+                    .values([{"value": value} for value in values])
+                    .on_conflict_do_nothing(index_elements=["value"])
+                )
+                result = await self.session.execute(
+                    select(ChatSessionTagTable).where(col(ChatSessionTagTable.value).in_(values))
+                )
+                tags_by_value = {tag.value: tag for tag in result.scalars().all()}
+                await self.session.flush()
+                assert chat_session.id is not None
+                assert all(tag.id is not None for tag in tags_by_value.values())
+                for tag in tags_by_value.values():
+                    self.session.add(
+                        ChatSessionToTagTable(
+                            chat_session_id=chat_session.id, tag_id=cast(int, tag.id)
+                        )
+                    )
+            if commit:
+                await self.session.commit()
             await self.session.refresh(chat_session)
+            if params.tags:
+                result = await self.session.execute(
+                    select(ChatSessionTable)
+                    .options(selectinload(cast(Any, ChatSessionTable.tags)))
+                    .where(col(ChatSessionTable.id) == chat_session.id)
+                )
+                return result.scalar_one()
         except Exception:
-            await self.session.rollback()
+            if commit:
+                await self.session.rollback()
             raise
         return chat_session
 

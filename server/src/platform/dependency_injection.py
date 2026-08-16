@@ -5,8 +5,11 @@ from dishka import Provider, Scope, provide
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.module.chat_sessions.agent.calculator_mini_chat_agent import CalculatorMiniChatAgent
-from src.module.chat_sessions.agent.direct_mini_chat_agent import DirectMiniChatAgent
+from src.module.agent_execution.agent_execution_service import AgentExecutionService
+from src.module.chat_session_groups.chat_session_groups_repository import ChatSessionGroupRepository
+from src.module.chat_session_groups.chat_session_groups_service import ChatSessionGroupService
+from src.module.chat_session_tags.chat_session_tags_repository import ChatSessionTagRepository
+from src.module.chat_session_tags.chat_session_tags_service import ChatSessionTagService
 from src.module.chat_sessions.chat_sessions_repository import ChatSessionRepository
 from src.module.chat_sessions.chat_sessions_service import ChatSessionService
 from src.module.dataset_conversations.dataset_conversations_repository import (
@@ -57,6 +60,18 @@ class ApplicationProvider(Provider):
         )
 
     @provide(scope=Scope.REQUEST)
+    def chat_session_tag_repository(
+        self, session: AsyncSession, observability: Observability
+    ) -> ChatSessionTagRepository:
+        return ChatSessionTagRepository(session, observability)
+
+    @provide(scope=Scope.REQUEST)
+    def chat_session_tag_service(
+        self, chat_session_tag_repository: ChatSessionTagRepository, observability: Observability
+    ) -> ChatSessionTagService:
+        return ChatSessionTagService(chat_session_tag_repository, observability)
+
+    @provide(scope=Scope.REQUEST)
     def chat_sessions_repository(
         self, session: AsyncSession, observability: Observability
     ) -> ChatSessionRepository:
@@ -68,39 +83,36 @@ class ApplicationProvider(Provider):
         chat_sessions_repository: ChatSessionRepository,
         dataset_conversation_repository: DatasetConversationRepository,
         observability: Observability,
+        agent_execution_service: AgentExecutionService,
     ) -> ChatSessionService:
         return ChatSessionService(
             chat_session_repository=chat_sessions_repository,
             dataset_conversation_repository=dataset_conversation_repository,
             observability=observability,
+            agent_execution_service=agent_execution_service,
         )
 
     @provide(scope=Scope.REQUEST)
-    def direct_mini_chat_agent(
-        self,
-        chat_sessions_repository: ChatSessionRepository,
-        dataset_conversation_repository: DatasetConversationRepository,
-        client: AsyncOpenAI | None,
-        observability: Observability,
-    ) -> DirectMiniChatAgent:
-        return DirectMiniChatAgent(
-            chat_session_repository=chat_sessions_repository,
-            dataset_conversation_repository=dataset_conversation_repository,
-            openai_client=client,
-            observability=observability,
-        )
+    def chat_session_group_repository(
+        self, session: AsyncSession, observability: Observability
+    ) -> ChatSessionGroupRepository:
+        return ChatSessionGroupRepository(session, observability)
 
     @provide(scope=Scope.REQUEST)
-    def calculator_mini_chat_agent(
+    def chat_session_group_service(
         self,
+        chat_session_group_repository: ChatSessionGroupRepository,
         chat_sessions_repository: ChatSessionRepository,
         dataset_conversation_repository: DatasetConversationRepository,
-        client: AsyncOpenAI | None,
         observability: Observability,
-    ) -> CalculatorMiniChatAgent:
-        return CalculatorMiniChatAgent(
-            chat_session_repository=chat_sessions_repository,
-            dataset_conversation_repository=dataset_conversation_repository,
-            openai_client=client,
-            observability=observability,
+    ) -> ChatSessionGroupService:
+        return ChatSessionGroupService(
+            chat_session_group_repository,
+            chat_sessions_repository,
+            dataset_conversation_repository,
+            observability,
         )
+
+    @provide(scope=Scope.APP)
+    def agent_execution_service(self, client: AsyncOpenAI | None) -> AgentExecutionService:
+        return AgentExecutionService(client)

@@ -1,8 +1,9 @@
 import { useMachine } from "@xstate/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useChat } from "@tanstack/ai-react";
 import { fetchServerSentEvents } from "@tanstack/ai-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/platform/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/platform/ui/card";
 import { ScrollArea } from "@/platform/ui/scroll-area";
@@ -13,20 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/platform/ui/select";
-import {
-  chatRunUrl,
-  datasetChatCreateSessionOptions,
-  datasetChatMessagesOptions,
-  datasetChatQueries,
-  datasetChatSessionsOptions,
-  type AgentVariant,
-  type PersistedMessage,
-} from "./dataset-chat.query";
-import {
-  datasetChatSessionSelectionMachine,
-  datasetChatTranscriptMachine,
-} from "./dataset-chat.machine";
+import { chatRunUrl, type AgentApproach, type OpenAIModel } from "./dataset-chat.query";
+import { datasetChatTranscriptMachine } from "./dataset-chat.machine";
 import type { DatasetConversation } from "./dataset-conversation.model";
+import {
+  chatSessionGroupListOptions,
+  useCreateChatSessionGroup,
+} from "./chat-session-groups.query";
 
 type TextPart = { type: "text"; content: string };
 type ToolCallPart = {
@@ -44,177 +38,244 @@ type ToolResultPart = {
   error?: unknown;
 };
 type InitialMessage = { id: string; role: "user" | "assistant"; parts: TextPart[] };
-const agentVariants = ["direct-mini", "calculator-mini"] as const satisfies readonly AgentVariant[];
-const agentVariantLabels: Record<AgentVariant, string> = {
-  "direct-mini": "Direct mini",
-  "calculator-mini": "Calculator mini",
+const agentApproaches = ["baseline", "baseline-tool"] as const satisfies readonly AgentApproach[];
+const agentApproachLabels: Record<AgentApproach, string> = {
+  baseline: "Baseline",
+  "baseline-tool": "Baseline + tool",
 };
-const agentVariantDescriptions: Record<AgentVariant, string> = {
-  "direct-mini": "Answers directly from the dataset context.",
-  "calculator-mini": "Can use arithmetic for calculation questions.",
-};
-function isAgentVariant(value: string): value is AgentVariant {
-  return agentVariants.some((variant) => variant === value);
+function isAgentApproach(value: string): value is AgentApproach {
+  return agentApproaches.some((approach) => approach === value);
 }
-
-const initial = (messages: PersistedMessage[]): InitialMessage[] =>
-  messages
-    .filter(
-      (m): m is PersistedMessage & { role: "user" | "assistant" } =>
-        m.role === "user" || m.role === "assistant",
-    )
-    .map((m) => ({
-      id: String(m.id),
-      role: m.role,
-      parts: [{ type: "text", content: m.content }],
-    }));
+const models = [
+  "gpt-5.6-luna",
+  "gpt-5.6-terra",
+  "gpt-5.6-sol",
+  "gpt-5-mini",
+] as const satisfies readonly OpenAIModel[];
+const modelLabels: Record<OpenAIModel, string> = {
+  "gpt-5.6-luna": "GPT-5.6 Luna",
+  "gpt-5.6-terra": "GPT-5.6 Terra",
+  "gpt-5.6-sol": "GPT-5.6 Sol",
+  "gpt-5-mini": "GPT-5 Mini",
+};
+function isOpenAIModel(value: string): value is OpenAIModel {
+  return models.some((model) => model === value);
+}
 
 export type CandidateQa = DatasetConversation["candidate_qa"];
 
-export function DatasetChat({
-  datasetId,
-  candidateQa,
-}: {
-  datasetId: number;
-  candidateQa: CandidateQa;
-}) {
-  const queryClient = useQueryClient();
-  const [selection, sendSelection] = useMachine(datasetChatSessionSelectionMachine);
-  const [selectedVariant, setSelectedVariant] = useState<AgentVariant>("direct-mini");
-  const selected = selection.context.selected;
-  const sessionsQuery = useQuery(datasetChatSessionsOptions(datasetId));
-  const messagesQuery = useQuery(datasetChatMessagesOptions(datasetId, selected));
-  const createMutation = useMutation({
-    ...datasetChatCreateSessionOptions(datasetId),
-    onSuccess: async (session) => {
-      await queryClient.invalidateQueries({ queryKey: datasetChatQueries.sessions(datasetId) });
-      sendSelection({ type: "session.created", sessionId: session.id });
+export function DatasetChat({ datasetId }: { datasetId: number }) {
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
+  const [groupTitle, setGroupTitle] = useState("");
+  const [groupConfigs, setGroupConfigs] = useState(() => [
+    {
+      id: crypto.randomUUID(),
+      agent_approach: "baseline" as AgentApproach,
+      model: "gpt-5.6-luna" as OpenAIModel,
     },
-  });
-  useEffect(() => {
-    sendSelection({ type: "dataset.reset" });
-  }, [datasetId]);
-  useEffect(() => {
-    const values = sessionsQuery.data;
-    if (!values) return;
-    sendSelection({
-      type: "sessions.synchronized",
-      sessionIds: values.map((session) => session.id),
-    });
-  }, [sessionsQuery.data, sendSelection]);
-  const sessions = sessionsQuery.data ?? [];
-  const error =
-    createMutation.error?.message ?? sessionsQuery.error?.message ?? messagesQuery.error?.message;
+    {
+      id: crypto.randomUUID(),
+      agent_approach: "baseline" as AgentApproach,
+      model: "gpt-5.6-luna" as OpenAIModel,
+    },
+  ]);
+  const groupsQuery = useQuery(chatSessionGroupListOptions(datasetId));
+  const createGroup = useCreateChatSessionGroup(datasetId);
   return (
-    <Card className="flex h-[clamp(32rem,calc(100vh-14rem),44rem)] min-h-0 flex-col overflow-hidden">
-      <CardHeader className="shrink-0">
-        <CardTitle>Dataset chat</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle>Playground groups</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Compare durable chats with different approaches and models for this dataset.
+          </p>
+        </div>
+        <Button onClick={() => setCreating((value) => !value)}>
+          {creating ? "Cancel" : "New group"}
+        </Button>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1">
-        <div className="grid h-full min-h-0 gap-4 md:grid-cols-[220px_minmax(0,1fr)_minmax(220px,300px)]">
-          <aside className="flex min-h-0 flex-col gap-2 border-b pb-4 md:border-b-0 md:border-r md:pb-0 md:pr-4">
+      <CardContent className="space-y-6">
+        {creating && (
+          <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium" htmlFor="dataset-chat-agent">
-                Agent
+              <label className="text-sm font-medium" htmlFor="group-title">
+                Title (optional)
               </label>
-              <Select
-                value={selectedVariant}
-                onValueChange={(value) => {
-                  if (isAgentVariant(value)) setSelectedVariant(value);
-                }}
-              >
-                <SelectTrigger
-                  aria-describedby="dataset-chat-agent-help"
-                  id="dataset-chat-agent"
-                  disabled={createMutation.isPending}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {agentVariants.map((variant) => (
-                    <SelectItem key={variant} value={variant}>
-                      {agentVariantLabels[variant]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground" id="dataset-chat-agent-help">
-                {agentVariantDescriptions[selectedVariant]}
-              </p>
-            </div>
-            <Button
-              className="w-full shrink-0"
-              disabled={createMutation.isPending}
-              onClick={() => createMutation.mutate(selectedVariant)}
-            >
-              {createMutation.isPending ? "Creating…" : "New chat"}
-            </Button>
-            {sessionsQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {sessionsQuery.isError && (
-              <Button onClick={() => void sessionsQuery.refetch()}>Retry chats</Button>
-            )}
-            {!sessionsQuery.isLoading && !sessionsQuery.isError && sessions.length === 0 && (
-              <p className="text-sm text-muted-foreground">No chats yet.</p>
-            )}
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-2 pr-3">
-                {sessions.map((s) => (
-                  <button
-                    aria-pressed={selected === s.id}
-                    className={`block w-full rounded p-2 text-left text-sm ${selected === s.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
-                    key={s.id}
-                    onClick={() => {
-                      sendSelection({ type: "session.selected", sessionId: s.id });
-                    }}
-                  >
-                    {s.title || `Chat #${s.id}`}
-                    <span className="block text-xs text-muted-foreground">
-                      {agentVariantLabels[s.agent_variant]} ·{" "}
-                      {new Date(s.updated_at).toLocaleString()}
-                    </span>
-                  </button>
+              <input
+                id="group-title"
+                className="h-9 w-full rounded border bg-background px-2 text-sm"
+                placeholder="Optional group title"
+                value={groupTitle}
+                onChange={(e) => setGroupTitle(e.target.value)}
+              />
+              <div className="space-y-2">
+                {groupConfigs.map((config, index) => (
+                  <div className="space-y-1 rounded border p-2" key={config.id}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">Chat {index + 1}</span>
+                      {groupConfigs.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setGroupConfigs((items) => items.filter((_, i) => i !== index))
+                          }
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <Select
+                      value={config.agent_approach}
+                      onValueChange={(value) => {
+                        if (isAgentApproach(value))
+                          setGroupConfigs((items) =>
+                            items.map((item, i) =>
+                              i === index ? { ...item, agent_approach: value } : item,
+                            ),
+                          );
+                      }}
+                    >
+                      <SelectTrigger aria-label={`Chat ${index + 1} approach`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agentApproaches.map((approach) => (
+                          <SelectItem key={approach} value={approach}>
+                            {agentApproachLabels[approach]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={config.model}
+                      onValueChange={(value) => {
+                        if (isOpenAIModel(value))
+                          setGroupConfigs((items) =>
+                            items.map((item, i) =>
+                              i === index ? { ...item, model: value } : item,
+                            ),
+                          );
+                      }}
+                    >
+                      <SelectTrigger aria-label={`Chat ${index + 1} model`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((model) => (
+                          <SelectItem key={model} value={model}>
+                            {modelLabels[model]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 ))}
-              </div>
-            </ScrollArea>
-          </aside>
-          {selected && !messagesQuery.isError && messagesQuery.data ? (
-            <ChatTranscript
-              key={selected}
-              datasetId={datasetId}
-              sessionId={selected}
-              initialMessages={initial(messagesQuery.data)}
-              onDone={() => {
-                void queryClient.invalidateQueries({
-                  queryKey: datasetChatQueries.sessions(datasetId),
-                });
-                void queryClient.invalidateQueries({
-                  queryKey: datasetChatQueries.messages(datasetId, selected),
-                });
-              }}
-            />
-          ) : (
-            <div className="flex h-full min-h-0 items-center justify-center p-8 text-sm text-muted-foreground">
-              {messagesQuery.isLoading
-                ? "Loading transcript…"
-                : messagesQuery.isError
-                  ? "Transcript failed to load. Select this chat to retry."
-                  : selected
-                    ? "No messages yet."
-                    : "Choose New chat to begin."}
-              {messagesQuery.isError && (
-                <Button className="mt-2" onClick={() => void messagesQuery.refetch()}>
-                  Retry
+                {groupConfigs.length < 4 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() =>
+                      setGroupConfigs((items) => [
+                        ...items,
+                        { ...items[items.length - 1], id: crypto.randomUUID() },
+                      ])
+                    }
+                  >
+                    Add chat
+                  </Button>
+                )}
+                <Button
+                  className="w-full"
+                  disabled={createGroup.isPending}
+                  onClick={() =>
+                    createGroup
+                      .mutateAsync({
+                        title: groupTitle.trim() || null,
+                        sessions: groupConfigs.map(({ agent_approach, model }) => ({
+                          agent_approach,
+                          model,
+                          tags: [],
+                        })),
+                      })
+                      .then((group) =>
+                        navigate({
+                          to: "/chat-session-groups/$chatSessionGroupId",
+                          params: { chatSessionGroupId: String(group.id) },
+                        }),
+                      )
+                  }
+                >
+                  {createGroup.isPending ? "Creating…" : "Create group"}
                 </Button>
+              </div>
+              {createGroup.isError && (
+                <p className="text-xs text-destructive">{createGroup.error.message}</p>
               )}
             </div>
-          )}
-          <CandidateQaPanel candidateQa={candidateQa} />
-        </div>
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {error}
-          </p>
+          </div>
         )}
+        {groupsQuery.isLoading && (
+          <p className="text-sm text-muted-foreground">Loading playground groups…</p>
+        )}
+        {groupsQuery.isError && (
+          <div className="space-y-2">
+            <p role="alert" className="text-sm text-destructive">
+              Could not load playground groups.
+            </p>
+            <Button variant="outline" onClick={() => void groupsQuery.refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {!groupsQuery.isLoading &&
+          !groupsQuery.isError &&
+          (groupsQuery.data?.length ?? 0) === 0 && (
+            <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              No playground groups yet. Create one to compare chats.
+            </p>
+          )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {groupsQuery.data?.map((group) => (
+            <button
+              key={group.id}
+              className="group rounded-lg border p-4 text-left transition-colors hover:border-primary hover:bg-muted/40"
+              onClick={() =>
+                void navigate({
+                  to: "/chat-session-groups/$chatSessionGroupId",
+                  params: { chatSessionGroupId: String(group.id) },
+                })
+              }
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="font-medium">{group.title || `Playground group #${group.id}`}</div>
+                <span
+                  aria-hidden="true"
+                  className="text-muted-foreground group-hover:text-foreground"
+                >
+                  →
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {group.sessions?.length ?? 0} chats ·{" "}
+                {[
+                  ...new Set(
+                    (group.sessions ?? []).map(
+                      (s) => `${agentApproachLabels[s.agent_approach]} / ${modelLabels[s.model]}`,
+                    ),
+                  ),
+                ].join(", ") || "No approaches"}
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Updated {new Date(group.updated_at).toLocaleString()} · Created{" "}
+                {new Date(group.created_at).toLocaleDateString()}
+              </p>
+            </button>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
@@ -303,20 +364,22 @@ export function ToolActivity({ part }: { part: ToolCallPart | ToolResultPart }) 
   );
 }
 
-function ChatTranscript({
-  datasetId,
-  sessionId,
-  initialMessages,
-  onDone,
-}: {
-  datasetId: number;
-  sessionId: number;
-  initialMessages: InitialMessage[];
-  onDone: () => void;
-}) {
+export type ChatTranscriptHandle = { send: (message: string) => Promise<boolean> };
+
+export const ChatTranscript = forwardRef<
+  ChatTranscriptHandle,
+  {
+    datasetId: number;
+    sessionId: number;
+    initialMessages: InitialMessage[];
+    onDone: () => void;
+    onError?: (error: Error) => void;
+  }
+>(({ datasetId, sessionId, initialMessages, onDone, onError }, ref) => {
   const [transcript, sendTranscript] = useMachine(datasetChatTranscriptMachine);
   const { input, sendError } = transcript.context;
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sendErrorRef = useRef<Error | null>(null);
   const connection = useMemo(
     () => fetchServerSentEvents(chatRunUrl(datasetId, sessionId)),
     [datasetId, sessionId],
@@ -326,25 +389,35 @@ function ChatTranscript({
     connection,
     initialMessages,
     onFinish: onDone,
+    onError: (error) => {
+      sendErrorRef.current = error;
+      onError?.(error);
+    },
   });
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chat.messages, chat.isLoading]);
   const visibleMessages = chat.messages.filter(hasVisibleTextPart);
-  const send = async () => {
-    const draft = input.trim();
-    if (!draft || chat.isLoading) return;
+  const send = async (question = input) => {
+    const draft = question.trim();
+    if (!draft || chat.isLoading) return false;
+    sendErrorRef.current = null;
     sendTranscript({ type: "send.started" });
     try {
       await chat.sendMessage(draft);
+      if (sendErrorRef.current) throw sendErrorRef.current;
+      sendTranscript({ type: "input.changed", value: "" });
+      return true;
     } catch (e) {
       sendTranscript({
         type: "send.failed",
         draft,
         error: e instanceof Error ? e.message : "Message failed",
       });
+      return false;
     }
   };
+  useImperativeHandle(ref, () => ({ send: (message) => send(message) }), [send]);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScrollArea className="min-h-0 flex-1">
@@ -415,4 +488,5 @@ function ChatTranscript({
       )}
     </div>
   );
-}
+});
+ChatTranscript.displayName = "ChatTranscript";

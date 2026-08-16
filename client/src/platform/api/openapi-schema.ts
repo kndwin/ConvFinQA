@@ -44,6 +44,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat-session-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List chat session tags */
+        get: operations["list_chat_session_tags_chat_session_tags_get"];
+        put?: never;
+        /** Create Chat Session Tag */
+        post: operations["create_chat_session_tag_chat_session_tags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat-session-tags/{chat_session_tag_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chat Session Tag */
+        get: operations["get_chat_session_tag_chat_session_tags__chat_session_tag_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Chat Session Tag */
+        delete: operations["delete_chat_session_tag_chat_session_tags__chat_session_tag_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Chat Session Tag */
+        patch: operations["update_chat_session_tag_chat_session_tags__chat_session_tag_id__patch"];
+        trace?: never;
+    };
     "/dataset-conversations/{dataset_conversation_id}/chat-sessions": {
         parameters: {
             query?: never;
@@ -121,6 +158,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dataset-conversations/{dataset_conversation_id}/chat-session-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Groups */
+        get: operations["list_groups_dataset_conversations__dataset_conversation_id__chat_session_groups_get"];
+        put?: never;
+        /** Create Group */
+        post: operations["create_group_dataset_conversations__dataset_conversation_id__chat_session_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat-session-groups/{chat_session_group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Group */
+        get: operations["get_group_chat_session_groups__chat_session_group_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Group */
+        delete: operations["delete_group_chat_session_groups__chat_session_group_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Group */
+        patch: operations["update_group_chat_session_groups__chat_session_group_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -147,10 +221,10 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * AgentVariant
+         * AgentApproach
          * @enum {string}
          */
-        AgentVariant: "direct-mini" | "calculator-mini";
+        AgentApproach: "baseline" | "baseline-tool";
         /**
          * AssistantMessage
          * @description An assistant message.
@@ -239,8 +313,52 @@ export interface components {
         };
         /** ChatSessionCreateRequest */
         ChatSessionCreateRequest: {
-            /** @default direct-mini */
-            agent_variant: components["schemas"]["AgentVariant"];
+            /** @default baseline */
+            agent_approach: components["schemas"]["AgentApproach"];
+            /** @default gpt-5.6-luna */
+            model: components["schemas"]["OpenAIModel"];
+            /** Tags */
+            tags?: components["schemas"]["ChatSessionTagInput"][];
+        };
+        /** ChatSessionGroupConfig */
+        ChatSessionGroupConfig: {
+            agent_approach: components["schemas"]["AgentApproach"];
+            model: components["schemas"]["OpenAIModel"];
+            /** Tags */
+            tags?: components["schemas"]["ChatSessionTagInput"][];
+        };
+        /** ChatSessionGroupCreateRequest */
+        ChatSessionGroupCreateRequest: {
+            /** Title */
+            title?: string | null;
+            /** Sessions */
+            sessions: components["schemas"]["ChatSessionGroupConfig"][];
+        };
+        /** ChatSessionGroupResponse */
+        ChatSessionGroupResponse: {
+            /** Id */
+            id: number;
+            /** Dataset Conversation Id */
+            dataset_conversation_id: number;
+            /** Title */
+            title: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Sessions */
+            sessions?: components["schemas"]["ChatSessionResponse"][];
+        };
+        /** ChatSessionGroupUpdateRequest */
+        ChatSessionGroupUpdateRequest: {
+            /** Title */
+            title: string | null;
         };
         /** ChatSessionResponse */
         ChatSessionResponse: {
@@ -248,7 +366,12 @@ export interface components {
             id: number;
             /** Dataset Conversation Id */
             dataset_conversation_id: number;
-            agent_variant: components["schemas"]["AgentVariant"];
+            agent_approach: components["schemas"]["AgentApproach"];
+            /** Prompt Version */
+            prompt_version: string;
+            /** Context Version */
+            context_version: string;
+            model: components["schemas"]["OpenAIModel"];
             /**
              * Created At
              * Format: date-time
@@ -261,6 +384,25 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Tags */
+            tags?: components["schemas"]["ChatSessionTagResponse"][];
+        };
+        /** ChatSessionTagInput */
+        ChatSessionTagInput: {
+            /** Value */
+            value: string;
+        };
+        /** ChatSessionTagRequest */
+        ChatSessionTagRequest: {
+            /** Value */
+            value: string;
+        };
+        /** ChatSessionTagResponse */
+        ChatSessionTagResponse: {
+            /** Id */
+            id: number;
+            /** Value */
+            value: string;
         };
         /** ChatSessionUpdateRequest */
         ChatSessionUpdateRequest: {
@@ -417,6 +559,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * OpenAIModel
+         * @enum {string}
+         */
+        OpenAIModel: "gpt-5.6-luna" | "gpt-5.6-terra" | "gpt-5.6-sol" | "gpt-5-mini";
         /**
          * ReasoningMessage
          * @description A reasoning message containing the agent's internal reasoning process.
@@ -697,6 +844,166 @@ export interface operations {
             };
         };
     };
+    list_chat_session_tags_chat_session_tags_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionTagResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_chat_session_tag_chat_session_tags_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chat_session_tag_chat_session_tags__chat_session_tag_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_session_tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_chat_session_tag_chat_session_tags__chat_session_tag_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_session_tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_chat_session_tag_chat_session_tags__chat_session_tag_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_session_tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_chat_sessions_dataset_conversations__dataset_conversation_id__chat_sessions_get: {
         parameters: {
             query?: never;
@@ -918,6 +1225,170 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_dataset_conversations__dataset_conversation_id__chat_session_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionGroupResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_dataset_conversations__dataset_conversation_id__chat_session_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionGroupCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionGroupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_chat_session_groups__chat_session_group_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_session_group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionGroupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_chat_session_groups__chat_session_group_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Also delete child sessions; defaults to preserving them. */
+                delete_chat_sessions?: boolean;
+            };
+            header?: never;
+            path: {
+                chat_session_group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_group_chat_session_groups__chat_session_group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_session_group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSessionGroupUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSessionGroupResponse"];
                 };
             };
             /** @description Validation Error */

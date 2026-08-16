@@ -9,9 +9,6 @@ from dishka.integrations.fastapi import inject
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import StreamingResponse
 
-from src.module.chat_sessions.agent.calculator_mini_chat_agent import CalculatorMiniChatAgent
-from src.module.chat_sessions.agent.direct_mini_chat_agent import DirectMiniChatAgent
-from src.module.chat_sessions.chat_sessions_constants import AgentVariant
 from src.module.chat_sessions.chat_sessions_router_schema import (
     ChatMessageResponse,
     ChatSessionCreateRequest,
@@ -64,10 +61,13 @@ async def create_chat_session(
     service: FromDishka[ChatSessionService],
     payload: ChatSessionCreateRequest | None = None,
 ) -> ChatSessionResponse:
+    selection = payload or ChatSessionCreateRequest()
     session = await service.create(
         ChatSessionServiceCreateParams(
             dataset_conversation_id=dataset_conversation_id,
-            agent_variant=(payload or ChatSessionCreateRequest()).agent_variant,
+            agent_approach=selection.agent_approach,
+            model=selection.model,
+            tags=[{"value": tag.value} for tag in selection.tags],
         )
     )
     if session is None:
@@ -167,48 +167,26 @@ async def run_agent(
     chat_session_id: Annotated[int, Path(gt=0)],
     input_data: RunAgentInput,
     service: FromDishka[ChatSessionService],
-    direct_agent: FromDishka[DirectMiniChatAgent],
-    calculator_agent: FromDishka[CalculatorMiniChatAgent],
     request: Request,
 ) -> StreamingResponse:
     encoder = EventEncoder(request.headers.get("accept") or "text/event-stream")
 
     async def encoded_events():
+        events = cast(
+            AsyncGenerator[BaseEvent],
+            service.run(dataset_conversation_id, chat_session_id, input_data),
+        )
         try:
-            session = await service.get(
-                ChatSessionServiceGetParams(
-                    dataset_conversation_id=dataset_conversation_id,
-                    chat_session_id=chat_session_id,
-                )
-            )
-            if session is None:
-                events = _one(RunErrorEvent(message="Chat session not found", code="not_found"))
-            elif session.agent_variant == AgentVariant.DIRECT_MINI:
-                events = cast(
-                    AsyncGenerator[BaseEvent],
-                    direct_agent.run(dataset_conversation_id, chat_session_id, input_data),
-                )
-            elif session.agent_variant == AgentVariant.CALCULATOR_MINI:
-                events = cast(
-                    AsyncGenerator[BaseEvent],
-                    calculator_agent.run(dataset_conversation_id, chat_session_id, input_data),
-                )
-            else:
-                events = _one(RunErrorEvent(message="Unsupported agent variant", code="run_error"))
+            async with aclosing(events):
+                async for event in events:
+                    yield encoder.encode(event)
         except Exception:
-            events = _one(
+            yield encoder.encode(
                 RunErrorEvent(message="The assistant could not complete this run", code="run_error")
             )
-        async with aclosing(events):
-            async for event in events:
-                yield encoder.encode(event)
 
     return StreamingResponse(
         encoded_events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-async def _one(event: BaseEvent) -> AsyncGenerator[BaseEvent]:
-    yield event

@@ -11,7 +11,8 @@ export const chatRunUrl = (datasetId: number, sessionId: number) =>
 
 export type Session = components["schemas"]["ChatSessionResponse"];
 export type PersistedMessage = components["schemas"]["ChatMessageResponse"];
-export type AgentVariant = components["schemas"]["AgentVariant"];
+export type AgentApproach = components["schemas"]["AgentApproach"];
+export type OpenAIModel = components["schemas"]["OpenAIModel"];
 
 export const datasetChatQueries = {
   all: ["dataset-chat"] as const,
@@ -61,13 +62,13 @@ export function datasetChatMessagesOptions(datasetId: number, sessionId: number 
 export function datasetChatCreateSessionOptions(datasetId: number) {
   const valid = idSchema.safeParse(datasetId).success;
   return mutationOptions({
-    mutationFn: async (variant: AgentVariant) => {
+    mutationFn: async (selection: { approach: AgentApproach; model: OpenAIModel }) => {
       if (!valid) throw new Error("A valid dataset is required to start a chat.");
       const { data, error } = await openapiClient.POST(
         "/dataset-conversations/{dataset_conversation_id}/chat-sessions",
         {
           params: { path: { dataset_conversation_id: datasetId } },
-          body: { agent_variant: variant },
+          body: { agent_approach: selection.approach, model: selection.model },
         },
       );
       if (error || !data) throw new Error("Unable to create chat. Please try again.");

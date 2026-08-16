@@ -46,7 +46,7 @@ export function DatasetConversationDetailPage() {
       state={{
         status: "ready",
         item,
-        chat: <DatasetChat datasetId={item.id!} candidateQa={item.candidate_qa} />,
+        chat: <DatasetChat datasetId={item.id!} />,
         activeTab: snapshot.matches({ tab: "record" }) ? "record" : "chat-sessions",
         onTabChange: (tab) =>
           send({

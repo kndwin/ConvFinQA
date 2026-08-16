@@ -58,9 +58,21 @@ For agentic chat, copy `server/.env.example` to `server/.env` and set
 `OPENAI_API_KEY`. The backend uses the OpenAI Agents SDK and streams AG-UI
 events to the TanStack AI client; PostgreSQL stores sessions and messages.
 
-Dataset chat uses separate complete `DirectMiniChatAgent` and
-`CalculatorMiniChatAgent` files. Tool-call events are live-only; persistence
-stores user and final assistant text, so reloads do not restore tool activity.
+Dataset chat uses one shared conversation runner with `baseline` as the
+default and `baseline-tool` as the alternate approach. Each approach is a
+vertical slice under `agent_approach/{baseline,baseline_tool}/` with its
+`run.py`, markdown prompt registry under `prompts/`, and context registry under
+`context/`. Prompt IDs are `baseline:v1` and `baseline-tool:v1`; both use the
+shared `document-conversation:v1` context definition. Sessions pin approach,
+prompt, context, and model. Tool-call events are
+live-only; persistence stores user and final assistant text, so reloads do not
+restore tool activity. The ConvFinQA evaluator uses this runner directly by
+default (`cd server && uv run --group eval python -m evals.runner`); use
+`--mode remote --base-url URL` for an HTTP/SSE replay.
+Chat sessions accept exactly these model IDs: `gpt-5.6-luna` (the default),
+`gpt-5.6-terra`, `gpt-5.6-sol`, and `gpt-5-mini`. When the model column is
+migrated, existing sessions retain compatibility by becoming `gpt-5-mini`; new
+database-defaulted sessions use `gpt-5.6-luna`.
 
 Run backend tests with:
 

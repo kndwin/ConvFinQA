@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { OpenAIModel } from "./dataset-chat.query";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Button } from "@/platform/ui/button";
@@ -6,12 +7,16 @@ import { ScrollArea } from "@/platform/ui/scroll-area";
 import { AgentReplyingIndicator, CandidateQaPanel, DatasetChat } from "./dataset-chat.ui";
 import { datasetChatMessagesOptions, datasetChatSessionsOptions } from "./dataset-chat.query";
 import type { Session, PersistedMessage } from "./dataset-chat.query";
+import { chatSessionGroupListOptions } from "./chat-session-groups.query";
 
 const datasetId = 42;
 const session = {
   id: 7,
   dataset_conversation_id: datasetId,
-  agent_variant: "direct-mini",
+  agent_approach: "baseline",
+  prompt_version: "baseline:v1",
+  context_version: "document-conversation:v1",
+  model: "gpt-5.6-luna" satisfies OpenAIModel,
   title: "Revenue question",
   created_at: "2024-01-01T12:00:00Z",
   updated_at: "2024-01-02T12:00:00Z",
@@ -43,6 +48,7 @@ function FixtureProvider({ children }: { children: ReactNode }) {
   });
   client.setQueryData(datasetChatSessionsOptions(datasetId).queryKey, [session]);
   client.setQueryData(datasetChatMessagesOptions(datasetId, session.id).queryKey, messages);
+  client.setQueryData(chatSessionGroupListOptions(datasetId).queryKey, []);
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -61,10 +67,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Ready: Story = { args: { datasetId, candidateQa } };
+export const Ready: Story = {
+  args: {
+    datasetId,
+  },
+};
 
 export const Replying: Story = {
-  args: { datasetId, candidateQa },
+  args: {
+    datasetId,
+  },
   render: () => (
     <div className="grid h-[32rem] w-full max-w-4xl gap-4 md:grid-cols-[minmax(0,1fr)_minmax(220px,300px)]">
       <div className="flex min-h-0 flex-col rounded-lg border p-4">

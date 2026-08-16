@@ -10,12 +10,19 @@
 
 import { Route as rootRouteImport } from './root.route'
 import { Route as moduleDataset_conversationsDatasetConversationDotrouteRouteImport } from './../../module/dataset_conversations/dataset-conversation.route'
+import { Route as chatSessionGroupsDotchatSessionGroupIdDotrouteRouteImport } from './../../chat-session-groups.$chatSessionGroupId.route'
 import { Route as moduleDataset_conversationsDatasetConversationDetailDotrouteRouteImport } from './../../module/dataset_conversations/dataset-conversation-detail.route'
 
 const moduleDataset_conversationsDatasetConversationDotrouteRoute =
   moduleDataset_conversationsDatasetConversationDotrouteRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const chatSessionGroupsDotchatSessionGroupIdDotrouteRoute =
+  chatSessionGroupsDotchatSessionGroupIdDotrouteRouteImport.update({
+    id: '/chat-session-groups/$chatSessionGroupId',
+    path: '/chat-session-groups/$chatSessionGroupId',
     getParentRoute: () => rootRouteImport,
   } as any)
 const moduleDataset_conversationsDatasetConversationDetailDotrouteRoute =
@@ -29,27 +36,41 @@ const moduleDataset_conversationsDatasetConversationDetailDotrouteRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof moduleDataset_conversationsDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof chatSessionGroupsDotchatSessionGroupIdDotrouteRoute
   '/dataset-conversations/$datasetConversationId': typeof moduleDataset_conversationsDatasetConversationDetailDotrouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof moduleDataset_conversationsDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof chatSessionGroupsDotchatSessionGroupIdDotrouteRoute
   '/dataset-conversations/$datasetConversationId': typeof moduleDataset_conversationsDatasetConversationDetailDotrouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof moduleDataset_conversationsDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof chatSessionGroupsDotchatSessionGroupIdDotrouteRoute
   '/dataset-conversations/$datasetConversationId': typeof moduleDataset_conversationsDatasetConversationDetailDotrouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dataset-conversations/$datasetConversationId'
+  fullPaths:
+    | '/'
+    | '/chat-session-groups/$chatSessionGroupId'
+    | '/dataset-conversations/$datasetConversationId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dataset-conversations/$datasetConversationId'
-  id: '__root__' | '/' | '/dataset-conversations/$datasetConversationId'
+  to:
+    | '/'
+    | '/chat-session-groups/$chatSessionGroupId'
+    | '/dataset-conversations/$datasetConversationId'
+  id:
+    | '__root__'
+    | '/'
+    | '/chat-session-groups/$chatSessionGroupId'
+    | '/dataset-conversations/$datasetConversationId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   moduleDataset_conversationsDatasetConversationDotrouteRoute: typeof moduleDataset_conversationsDatasetConversationDotrouteRoute
+  chatSessionGroupsDotchatSessionGroupIdDotrouteRoute: typeof chatSessionGroupsDotchatSessionGroupIdDotrouteRoute
   moduleDataset_conversationsDatasetConversationDetailDotrouteRoute: typeof moduleDataset_conversationsDatasetConversationDetailDotrouteRoute
 }
 
@@ -60,6 +81,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof moduleDataset_conversationsDatasetConversationDotrouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat-session-groups/$chatSessionGroupId': {
+      id: '/chat-session-groups/$chatSessionGroupId'
+      path: '/chat-session-groups/$chatSessionGroupId'
+      fullPath: '/chat-session-groups/$chatSessionGroupId'
+      preLoaderRoute: typeof chatSessionGroupsDotchatSessionGroupIdDotrouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dataset-conversations/$datasetConversationId': {
@@ -75,6 +103,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   moduleDataset_conversationsDatasetConversationDotrouteRoute:
     moduleDataset_conversationsDatasetConversationDotrouteRoute,
+  chatSessionGroupsDotchatSessionGroupIdDotrouteRoute:
+    chatSessionGroupsDotchatSessionGroupIdDotrouteRoute,
   moduleDataset_conversationsDatasetConversationDetailDotrouteRoute:
     moduleDataset_conversationsDatasetConversationDetailDotrouteRoute,
 }

@@ -4,7 +4,50 @@ from datetime import UTC, datetime
 from typing import ClassVar
 
 from sqlalchemy import Column, DateTime, UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+
+class ChatSessionTagTable(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "chat_session_tag"
+    id: int | None = Field(default=None, primary_key=True)
+    value: str = Field(max_length=100, index=True, unique=True)
+
+
+class ChatSessionToTagTable(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "chat_session_to_tag"
+    chat_session_id: int = Field(
+        foreign_key="chat_session.id", primary_key=True, ondelete="CASCADE"
+    )
+    tag_id: int = Field(foreign_key="chat_session_tag.id", primary_key=True, ondelete="CASCADE")
+
+
+class ChatSessionGroupTable(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "chat_session_group"
+    id: int | None = Field(default=None, primary_key=True)
+    dataset_conversation_id: int = Field(
+        foreign_key="dataset_conversation.id", index=True, ondelete="CASCADE"
+    )
+    title: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class ChatSessionToGroupTable(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "chat_session_to_group"
+    chat_session_group_id: int = Field(
+        foreign_key="chat_session_group.id", primary_key=True, ondelete="CASCADE"
+    )
+    chat_session_id: int = Field(
+        foreign_key="chat_session.id", primary_key=True, ondelete="CASCADE", unique=True
+    )
+    position: int = Field(ge=0)
+    __table_args__ = (UniqueConstraint("chat_session_group_id", "position"),)
 
 
 class DatasetConversationTable(SQLModel, table=True):
@@ -27,7 +70,10 @@ class ChatSessionTable(SQLModel, table=True):
     __tablename__: ClassVar[str] = "chat_session"
     id: int | None = Field(default=None, primary_key=True)
     dataset_conversation_id: int = Field(foreign_key="dataset_conversation.id", index=True)
-    agent_variant: str = Field(default="direct-mini", index=True)
+    agent_approach: str = Field(default="baseline", index=True)
+    prompt_version: str = Field(default="baseline:v1")
+    context_version: str = Field(default="document-conversation:v1")
+    model: str = Field(default="gpt-5.6-luna")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False),
@@ -37,6 +83,7 @@ class ChatSessionTable(SQLModel, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+    tags: list[ChatSessionTagTable] = Relationship(link_model=ChatSessionToTagTable)
 
 
 class ChatMessageTable(SQLModel, table=True):
