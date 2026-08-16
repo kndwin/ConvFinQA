@@ -1,0 +1,166 @@
+README.md
+  h_ba3efde196eb39 61-75
+client/package.json
+  h_ba3efde196eb39 23
+client/pnpm-lock.yaml
+  h_ba3efde196eb39 17-19,1025-1037,3297-3319
+client/src/chat-session-groups.$chatSessionGroupId.route.ts
+  h_ba3efde196eb39 1-6
+client/src/module/dataset_conversations/chat-session-group-detail.page.tsx
+  h_ba3efde196eb39 1-175
+client/src/module/dataset_conversations/chat-session-groups.query.ts
+  h_ba3efde196eb39 1-92
+client/src/module/dataset_conversations/dataset-chat.query.ts
+  h_ba3efde196eb39 14-15,65,71
+client/src/module/dataset_conversations/dataset-chat.ui.story.tsx
+  h_ba3efde196eb39 2,10,16-19,51,70-74,77-79
+client/src/module/dataset_conversations/dataset-chat.ui.tsx
+  h_ba3efde196eb39 2,5-6,17-18,20-23,41-44,46-59,61-62,67-75,77-84,86-96,98-100,102-103,105-174,176-212,214-216,219-239,241-277,367-378,382,392-395,401-404,408-410,417,420,491-492
+client/src/module/dataset_conversations/dataset-conversation-detail.page.tsx
+  h_ba3efde196eb39 49
+client/src/module/dataset_conversations/document-context-popover.tsx
+  h_ba3efde196eb39 1-46
+client/src/platform/api/openapi-schema.ts
+  h_ba3efde196eb39 47-83,161-197,224,227,316-361,369-374,387-405,562-566,847-1006,1241-1404
+client/src/platform/router/route-tree.gen.ts
+  h_ba3efde196eb39 13,22-27,39,44,50,55-58,60-68,73,86-92,106-107
+client/src/platform/router/routes.ts
+  h_ba3efde196eb39 9-12
+client/src/platform/ui/badge.tsx
+  h_ba3efde196eb39 19-23,25-28
+client/src/platform/ui/popover.tsx
+  h_ba3efde196eb39 1-27
+infra/Pulumi.prod.yaml
+  h_ba3efde196eb39 1-3
+server/README.md
+  h_ba3efde196eb39 13-14,18-38,40-43,111-136
+server/evals/__init__.py
+  h_ba3efde196eb39 1
+server/evals/golden.py
+  h_ba3efde196eb39 1-61
+server/evals/runner.py
+  h_ba3efde196eb39 1-436
+server/evals/scoring.py
+  h_ba3efde196eb39 1-73
+server/evals/test_eval.py
+  h_ba3efde196eb39 1-67
+server/pyproject.toml
+  h_ba3efde196eb39 29-32,79-88
+server/src/main.py
+  h_ba3efde196eb39 9,11-13,62,64
+server/src/module/agent_execution/agent_approach/baseline/context/registry.py
+  h_ba3efde196eb39 1-14
+server/src/module/agent_execution/agent_approach/baseline/prompts/registry.py
+  h_ba3efde196eb39 1-20
+server/src/module/agent_execution/agent_approach/baseline/prompts/v1.md
+  h_ba3efde196eb39 1
+server/src/module/agent_execution/agent_approach/baseline/run.py
+  h_ba3efde196eb39 1-42
+server/src/module/agent_execution/agent_approach/baseline_tool/context/registry.py
+  h_ba3efde196eb39 1-14
+server/src/module/agent_execution/agent_approach/baseline_tool/prompts/registry.py
+  h_ba3efde196eb39 1-20
+server/src/module/agent_execution/agent_approach/baseline_tool/prompts/v1.md
+  h_ba3efde196eb39 1
+server/src/module/agent_execution/agent_approach/baseline_tool/run.py
+  h_ba3efde196eb39 2,13,17-18,20-21,23-29,33-35,37,39-46,48-50,54-55,58-59,61,71-73,84,94-98,101,107-109,113
+server/src/module/agent_execution/agent_approach/baseline_tool/tools/calculator.py
+  h_ba3efde196eb39 1-20
+server/src/module/agent_execution/agent_approach/shared/agents.py
+  h_ba3efde196eb39 4,9,12-14,16-17,19-20,23-24,26-32,38-39,51-53,55-57,61
+server/src/module/agent_execution/agent_approach/shared/context/document_conversation.py
+  h_ba3efde196eb39 1-27
+server/src/module/agent_execution/agent_approach/shared/context/registry.py
+  h_ba3efde196eb39 1-11
+server/src/module/agent_execution/agent_execution_constants.py
+  h_ba3efde196eb39 4-20
+server/src/module/agent_execution/agent_execution_repository.py
+  h_ba3efde196eb39 1-10
+server/src/module/agent_execution/agent_execution_repository_schema.py
+  h_ba3efde196eb39 1-15
+server/src/module/agent_execution/agent_execution_runner.py
+  h_ba3efde196eb39 1-120
+server/src/module/agent_execution/agent_execution_runner_schema.py
+  h_ba3efde196eb39 1-64
+server/src/module/agent_execution/agent_execution_service.py
+  h_ba3efde196eb39 1-21
+server/src/module/agent_execution/agent_execution_service_schema.py
+  h_ba3efde196eb39 1-20
+server/src/module/agent_execution/agent_execution_util.py
+  h_ba3efde196eb39 1-42
+server/src/module/agent_execution/agent_execution_util_schema.py
+  h_ba3efde196eb39 1-17
+server/src/module/agent_execution/repositories/callbacks.py
+  h_ba3efde196eb39 1-30
+server/src/module/agent_execution/repositories/in_memory.py
+  h_ba3efde196eb39 1-19
+server/src/module/chat_session_groups/__init__.py
+  h_ba3efde196eb39 1
+server/src/module/chat_session_groups/chat_session_groups_repository.py
+  h_ba3efde196eb39 1-102
+server/src/module/chat_session_groups/chat_session_groups_repository_schema.py
+  h_ba3efde196eb39 1-27
+server/src/module/chat_session_groups/chat_session_groups_router.py
+  h_ba3efde196eb39 1-149
+server/src/module/chat_session_groups/chat_session_groups_router_schema.py
+  h_ba3efde196eb39 1-56
+server/src/module/chat_session_groups/chat_session_groups_service.py
+  h_ba3efde196eb39 1-114
+server/src/module/chat_session_groups/chat_session_groups_service_schema.py
+  h_ba3efde196eb39 1-62
+server/src/module/chat_session_tags/chat_session_tags_constants.py
+  h_ba3efde196eb39 1-2
+server/src/module/chat_session_tags/chat_session_tags_repository.py
+  h_ba3efde196eb39 1-75
+server/src/module/chat_session_tags/chat_session_tags_repository_schema.py
+  h_ba3efde196eb39 1-51
+server/src/module/chat_session_tags/chat_session_tags_router.py
+  h_ba3efde196eb39 1-90
+server/src/module/chat_session_tags/chat_session_tags_router_schema.py
+  h_ba3efde196eb39 1-26
+server/src/module/chat_session_tags/chat_session_tags_service.py
+  h_ba3efde196eb39 1-44
+server/src/module/chat_session_tags/chat_session_tags_service_schema.py
+  h_ba3efde196eb39 1-22
+server/src/module/chat_sessions/chat_sessions_repository.py
+  h_ba3efde196eb39 3,6-7,10-13,23-28,47,56-58,114-116,119-122,126-152,154-160,162-163
+server/src/module/chat_sessions/chat_sessions_repository_schema.py
+  h_ba3efde196eb39 3,5,14-27,39-49
+server/src/module/chat_sessions/chat_sessions_router.py
+  h_ba3efde196eb39 64,68-70,175-178,180-182,184
+server/src/module/chat_sessions/chat_sessions_router_schema.py
+  h_ba3efde196eb39 3,5-26,34-37,41,45-55
+server/src/module/chat_sessions/chat_sessions_service.py
+  h_ba3efde196eb39 2,4-10,12-16,41,46-122
+server/src/platform/database/migrations/versions/0010_chat_session_model.py
+  h_ba3efde196eb39 1-24
+server/src/platform/database/migrations/versions/0011_chat_session_approach_versions.py
+  h_ba3efde196eb39 1-62
+server/src/platform/database/migrations/versions/0012_chat_session_tags.py
+  h_ba3efde196eb39 1-35
+server/src/platform/database/migrations/versions/0013_chat_session_groups.py
+  h_ba3efde196eb39 1-41
+server/src/platform/database/models.py
+  h_ba3efde196eb39 7-50,73-76,86
+server/src/platform/dependency_injection.py
+  h_ba3efde196eb39 8-12,62-73,86,92,96-99,102,104,108-113,115-118
+server/tests/test_chat_session_groups.py
+  h_ba3efde196eb39 1-92
+server/tests/test_chat_session_tags.py
+  h_ba3efde196eb39 1-257
+server/tests/test_chat_sessions.py
+  h_ba3efde196eb39 2,5,8-13,17-21,23-24,26-36,60,62-77,81-82,85,87,89,98-119,122-123,126-130,136-137,140,147,152-167,200-201,229-231,255,268-270,289,315-316,319-327,358-383,424-595,599-633,636-639,642-654,656-658,660-662,664-665,667-668,670-675,677-681,684-688,690-695,697-705,708-709,712-714,717-720,724-736,738,740-741,743,745-758,761-763,765-807,809-826,828-834,836-838,840,842-877,879,881-890,892-920,923-962,965-980
+server/uv.lock
+  h_ba3efde196eb39 17-95,182-190,355,360,362,424-462,512-520,639-679,784-804,926-934,1137-1190,1390-1477,1590-1598,1622-1687,1745-1756,1787,1793,1795,2023-2026,2051-2063,2143-2160,2342-2350,2394-2405,2436-2483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d1fc02268442e7a06a8093a7b3c58dcad2449e24",
+  "prompts": {},
+  "humans": {
+    "h_ba3efde196eb39": {
+      "author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
