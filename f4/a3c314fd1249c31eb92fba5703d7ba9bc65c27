@@ -1,0 +1,33 @@
+client/src/module/dataset_conversations/chat-session-groups.query.ts
+  s_7a053fececdeed::t_2ae7f632f87feb 44-50
+server/src/main.py
+  s_7a053fececdeed::t_4287de27c5359c 12-13
+server/src/module/chat_session_groups/chat_session_groups_repository.py
+  s_e610e4580fa95e::t_18ee497829cc3f 2,5,35
+server/src/module/chat_session_groups/chat_session_groups_service.py
+  s_e610e4580fa95e::t_4c8ae0aac76a9b 1-2,49,54,59,64,72,88,100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f4a3c314fd1249c31eb92fba5703d7ba9bc65c27",
+  "prompts": {},
+  "sessions": {
+    "s_7a053fececdeed": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f3dce89b-6d57-46d0-bafa-6084bf9433cc",
+        "model": "grok-4.6"
+      },
+      "human_author": "Kevin <kevin@sucasa.com.au>"
+    },
+    "s_e610e4580fa95e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "5620e022-09a5-434a-bea8-36bd275e2245",
+        "model": "grok-4.6"
+      },
+      "human_author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
