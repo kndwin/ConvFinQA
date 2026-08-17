@@ -1,3 +1,6 @@
+from collections.abc import Awaitable, Callable
+from typing import Protocol, cast
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -10,6 +13,10 @@ from src.module.chat_session_groups.chat_session_groups_service_schema import (
     ChatSessionGroupConfig,
     ChatSessionGroupServiceCreateParams,
 )
+
+
+class _DishkaCreateGroup(Protocol):
+    __dishka_orig_func__: Callable[..., Awaitable[object]]
 
 
 def config(i: int = 0) -> dict[str, object]:
@@ -54,7 +61,7 @@ async def test_create_router_converts_ordered_configs_and_tags() -> None:
             return None
 
     with pytest.raises(HTTPException) as error:
-        await create_group.__dishka_orig_func__(
+        await cast(_DishkaCreateGroup, create_group).__dishka_orig_func__(
             7,
             ChatSessionGroupCreateRequest(
                 sessions=[

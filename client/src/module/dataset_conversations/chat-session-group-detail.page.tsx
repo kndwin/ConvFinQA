@@ -30,7 +30,7 @@ function GroupSessionCard({
 }) {
   const messages = useQuery(datasetChatMessagesOptions(datasetId, session.id));
   return (
-    <article className="flex min-h-[28rem] min-w-0 flex-col rounded-lg border p-4">
+    <article className="flex h-[32rem] min-h-0 min-w-0 flex-col rounded-lg border p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-medium">
         <span>Session #{session.id}</span>
         <Badge variant="secondary">{session.agent_approach}</Badge>

@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import QueryableAttribute, selectinload
 from sqlmodel import col
 
 from src.module.chat_session_groups.chat_session_groups_repository_schema import (
@@ -31,7 +32,7 @@ class ChatSessionGroupRepository(BaseRepository):
                 ChatSessionToGroupTable,
                 col(ChatSessionTable.id) == col(ChatSessionToGroupTable.chat_session_id),
             )
-            .options(selectinload(ChatSessionTable.tags))
+            .options(selectinload(cast(QueryableAttribute[Any], ChatSessionTable.tags)))
             .where(col(ChatSessionToGroupTable.chat_session_group_id) == group.id)
             .order_by(col(ChatSessionToGroupTable.position))
         )

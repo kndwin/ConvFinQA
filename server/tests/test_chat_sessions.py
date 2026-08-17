@@ -100,7 +100,7 @@ class ChatSessionApproachSchemaTests(unittest.TestCase):
         )
         self.assertEqual(
             schema["components"]["schemas"]["AgentApproach"]["enum"],
-            ["baseline", "baseline-tool"],
+            ["baseline", "baseline-tool", "program-of-thought"],
         )
         self.assertEqual(
             request_schema["properties"]["model"]["$ref"],

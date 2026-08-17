@@ -8,6 +8,17 @@ import { AgentReplyingIndicator, CandidateQaPanel, DatasetChat } from "./dataset
 import { datasetChatMessagesOptions, datasetChatSessionsOptions } from "./dataset-chat.query";
 import type { Session, PersistedMessage } from "./dataset-chat.query";
 import { chatSessionGroupListOptions } from "./chat-session-groups.query";
+import { Message, MessageContent, MessageHeader } from "@/platform/ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/platform/ui/message-scroller";
+import { CircleDot } from "lucide-react";
+import { ToolActivity } from "./dataset-chat.ui";
 
 const datasetId = 42;
 const session = {
@@ -111,6 +122,104 @@ export const Replying: Story = {
         </form>
       </div>
       <CandidateQaPanel candidateQa={candidateQa} />
+    </div>
+  ),
+};
+
+export const MessageScrollerPreview: Story = {
+  args: { datasetId },
+  render: () => (
+    <div className="h-[34rem] w-full max-w-2xl rounded-lg border bg-background p-4">
+      <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
+        <MessageScroller>
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="pr-2">
+              {[
+                ["user", "Summarize the latest revenue movement."],
+                ["assistant", "Revenue is up 8% quarter over quarter, led by enterprise renewals."],
+                ["user", "Which segment contributed most?"],
+                ["assistant", "I’ll compare the segment totals and renewal mix."],
+              ].map(([role, text], index) => (
+                <MessageScrollerItem
+                  key={`${role}-${text}`}
+                  messageId={`history-${index}`}
+                  scrollAnchor={role === "user"}
+                >
+                  <Message align={role === "user" ? "end" : "start"}>
+                    <MessageContent>
+                      <MessageHeader>{role === "user" ? "You" : "Assistant"}</MessageHeader>
+                      <div
+                        className={
+                          role === "user"
+                            ? "ml-auto max-w-[85%] rounded-lg bg-muted px-3 py-2"
+                            : "max-w-[90%] px-3 py-1"
+                        }
+                      >
+                        {text}
+                      </div>
+                    </MessageContent>
+                  </Message>
+                </MessageScrollerItem>
+              ))}
+              <MessageScrollerItem messageId="tool-lifecycle">
+                <Message align="start">
+                  <MessageContent>
+                    <MessageHeader>Assistant</MessageHeader>
+                    <div className="max-w-[90%] px-3 py-1">
+                      <div className="space-y-2">
+                        <div className="typeset typeset-docs">
+                          I’ll compare the segment totals and renewal mix.
+                        </div>
+                        <ToolActivity
+                          part={{
+                            type: "tool-call",
+                            id: "segment-call",
+                            name: "segment_totals",
+                            state: "completed",
+                            arguments: {
+                              period: "latest quarter",
+                              includeRenewals: true,
+                            },
+                          }}
+                        />
+                        <ToolActivity
+                          part={{
+                            type: "tool-result",
+                            toolCallId: "segment-call",
+                            state: "completed",
+                            content: "$4.2M enterprise / $1.8M self-serve",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </MessageContent>
+                </Message>
+              </MessageScrollerItem>
+              <MessageScrollerItem messageId="streaming">
+                <AgentReplyingIndicator />
+              </MessageScrollerItem>
+              <MessageScrollerItem messageId="latest" scrollAnchor>
+                <Message align="start">
+                  <MessageContent>
+                    <MessageHeader>Assistant</MessageHeader>
+                    <div className="px-3 py-1">
+                      Enterprise contributed the majority of the increase, with renewals accounting
+                      for most of the movement.
+                    </div>
+                  </MessageContent>
+                </Message>
+              </MessageScrollerItem>
+              <MessageScrollerItem messageId="follow-up">
+                <div className="flex items-center gap-2 px-3 text-sm text-muted-foreground">
+                  <CircleDot aria-hidden="true" className="size-4" />
+                  <span>Ready for the next question</span>
+                </div>
+              </MessageScrollerItem>
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
     </div>
   ),
 };

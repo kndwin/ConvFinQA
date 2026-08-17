@@ -1,5 +1,5 @@
 import { useMachine } from "@xstate/react";
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useChat } from "@tanstack/ai-react";
 import { fetchServerSentEvents } from "@tanstack/ai-client";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +7,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/platform/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/platform/ui/card";
 import { ScrollArea } from "@/platform/ui/scroll-area";
+import { Message, MessageContent, MessageHeader } from "@/platform/ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/platform/ui/message-scroller";
+import { Marker, MarkerContent, MarkerIcon } from "@/platform/ui/marker";
+import { AlertCircle, Check, LoaderCircle, Wrench } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -38,10 +49,15 @@ type ToolResultPart = {
   error?: unknown;
 };
 type InitialMessage = { id: string; role: "user" | "assistant"; parts: TextPart[] };
-const agentApproaches = ["baseline", "baseline-tool"] as const satisfies readonly AgentApproach[];
+const agentApproaches = [
+  "baseline",
+  "baseline-tool",
+  "program-of-thought",
+] as const satisfies readonly AgentApproach[];
 const agentApproachLabels: Record<AgentApproach, string> = {
   baseline: "Baseline",
   "baseline-tool": "Baseline + tool",
+  "program-of-thought": "Program of thought",
 };
 function isAgentApproach(value: string): value is AgentApproach {
   return agentApproaches.some((approach) => approach === value);
@@ -344,23 +360,73 @@ function hasVisibleTextPart(message: { parts: readonly { type: string; content?:
   );
 }
 
+function displayToolName(name: string) {
+  return name
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\w/, (character) => character.toUpperCase());
+}
+
+function displayToolValue(value: unknown) {
+  if (typeof value === "string") return value;
+  const json = JSON.stringify(value, null, 2);
+  return json ?? String(value);
+}
+
 export function ToolActivity({ part }: { part: ToolCallPart | ToolResultPart }) {
   if (part.type === "tool-call") {
     return (
-      <div className="my-1 rounded border bg-muted/40 p-2 text-xs">
-        <strong>Tool: {part.name}</strong> · {part.state}
-        <pre className="mt-1 whitespace-pre-wrap">
-          {typeof part.arguments === "string" ? part.arguments : JSON.stringify(part.arguments)}
+      <details className="my-1 min-w-0 text-xs">
+        <summary
+          aria-label={`Show arguments for ${displayToolName(part.name)}`}
+          className="cursor-pointer list-none rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+        >
+          <Marker className="rounded-md border border-border/70 bg-muted/30 px-2 py-1.5 text-xs hover:bg-muted/50">
+            <MarkerIcon>
+              <Wrench />
+            </MarkerIcon>
+            <MarkerContent>
+              <span className="font-medium text-foreground">{displayToolName(part.name)}</span>
+              <span className="ml-2">{displayToolName(part.state)}</span>
+            </MarkerContent>
+          </Marker>
+        </summary>
+        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/20 p-2 font-mono text-[0.7rem] leading-relaxed [overflow-wrap:anywhere]">
+          {displayToolValue(part.arguments)}
         </pre>
-      </div>
+      </details>
     );
   }
+  const hasError = part.error !== undefined && part.error !== null;
   return (
-    <div className="my-1 rounded border p-2 text-xs">
-      <strong>Tool result</strong> · {part.state}
-      <div>{typeof part.content === "string" ? part.content : JSON.stringify(part.content)}</div>
-      {part.error ? <div className="text-destructive">{String(part.error)}</div> : null}
-    </div>
+    <details className="my-1 min-w-0 text-xs" open={hasError || undefined}>
+      <summary
+        aria-label={`Show tool result (${displayToolName(part.state)})`}
+        className="cursor-pointer list-none rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+      >
+        <Marker
+          className={
+            hasError
+              ? "rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-xs"
+              : "rounded-md border border-border/70 bg-muted/30 px-2 py-1.5 text-xs hover:bg-muted/50"
+          }
+        >
+          <MarkerIcon>{hasError ? <AlertCircle /> : <Check />}</MarkerIcon>
+          <MarkerContent>
+            <span className="font-medium text-foreground">Tool result</span>
+            <span className="ml-2">{displayToolName(part.state)}</span>
+          </MarkerContent>
+        </Marker>
+      </summary>
+      <div className="mt-1 space-y-1 rounded-md border border-border/60 bg-muted/20 p-2 font-mono text-[0.7rem] leading-relaxed [overflow-wrap:anywhere]">
+        <pre className="whitespace-pre-wrap">{displayToolValue(part.content)}</pre>
+        {hasError ? (
+          <pre className="whitespace-pre-wrap text-destructive">{displayToolValue(part.error)}</pre>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
@@ -378,7 +444,6 @@ export const ChatTranscript = forwardRef<
 >(({ datasetId, sessionId, initialMessages, onDone, onError }, ref) => {
   const [transcript, sendTranscript] = useMachine(datasetChatTranscriptMachine);
   const { input, sendError } = transcript.context;
-  const bottomRef = useRef<HTMLDivElement>(null);
   const sendErrorRef = useRef<Error | null>(null);
   const connection = useMemo(
     () => fetchServerSentEvents(chatRunUrl(datasetId, sessionId)),
@@ -394,9 +459,6 @@ export const ChatTranscript = forwardRef<
       onError?.(error);
     },
   });
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [chat.messages, chat.isLoading]);
   const visibleMessages = chat.messages.filter(hasVisibleTextPart);
   const send = async (question = input) => {
     const draft = question.trim();
@@ -420,36 +482,66 @@ export const ChatTranscript = forwardRef<
   useImperativeHandle(ref, () => ({ send: (message) => send(message) }), [send]);
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-3 whitespace-pre-wrap break-words pr-4 [overflow-wrap:anywhere]">
-          {visibleMessages.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Ask a question about this financial dataset.
-            </p>
-          )}
-          {visibleMessages.map((m) => (
-            <div
-              className={`rounded-lg p-3 ${m.role === "user" ? "ml-8 bg-muted" : "mr-8 border"}`}
-              key={m.id}
-            >
-              <div className="typeset typeset-docs max-w-[37em]">
-                {m.parts.map((part) =>
-                  part.type === "text" ? (
-                    <span key={`${m.id}-${part.type}`}>{part.content}</span>
-                  ) : part.type === "tool-call" || part.type === "tool-result" ? (
-                    <ToolActivity
-                      key={part.type === "tool-call" ? part.id : part.toolCallId}
-                      part={part as ToolCallPart | ToolResultPart}
-                    />
-                  ) : null,
-                )}
-              </div>
-            </div>
-          ))}
-          {chat.isLoading && <AgentReplyingIndicator />}
-          <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
+      <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
+        <MessageScroller className="min-h-0 flex-1">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="pr-2" aria-busy={chat.isLoading}>
+              {visibleMessages.length === 0 && (
+                <MessageScrollerItem messageId="empty-transcript">
+                  <p className="text-sm text-muted-foreground">
+                    Ask a question about this financial dataset.
+                  </p>
+                </MessageScrollerItem>
+              )}
+              {visibleMessages.map((m) => (
+                <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === "user"}>
+                  <Message align={m.role === "user" ? "end" : "start"}>
+                    <MessageContent>
+                      <MessageHeader className={m.role === "user" ? "justify-end" : undefined}>
+                        {m.role === "user" ? "You" : "Assistant"}
+                      </MessageHeader>
+                      <div
+                        className={
+                          m.role === "user"
+                            ? "ml-auto max-w-[37em] rounded-lg bg-muted px-3 py-2"
+                            : "max-w-[44em] px-3 py-1"
+                        }
+                      >
+                        <div className="space-y-2 whitespace-pre-wrap">
+                          {m.parts.map((part) =>
+                            part.type === "text" ? (
+                              <span className="typeset typeset-docs" key={`${m.id}-${part.type}`}>
+                                {part.content}
+                              </span>
+                            ) : part.type === "tool-call" || part.type === "tool-result" ? (
+                              <ToolActivity
+                                key={part.type === "tool-call" ? part.id : part.toolCallId}
+                                part={part as ToolCallPart | ToolResultPart}
+                              />
+                            ) : null,
+                          )}
+                        </div>
+                      </div>
+                    </MessageContent>
+                  </Message>
+                </MessageScrollerItem>
+              ))}
+              {chat.isLoading && (
+                <MessageScrollerItem messageId="streaming-status">
+                  {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- status is the primitive's documented live-region contract. */}
+                  <Marker role="status" className="px-3" aria-live="polite">
+                    <MarkerIcon>
+                      <LoaderCircle className="animate-spin" />
+                    </MarkerIcon>
+                    <MarkerContent>Agent is replying…</MarkerContent>
+                  </Marker>
+                </MessageScrollerItem>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
       <form
         className="mt-4 flex shrink-0 gap-2 border-t pt-4"
         onSubmit={(e) => {

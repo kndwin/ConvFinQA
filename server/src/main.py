@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
-from src.module.chat_session_tags.chat_session_tags_router import router as chat_session_tags_router
-from src.module.chat_sessions.chat_sessions_router import router as chat_sessions_router
 from src.module.chat_session_groups.chat_session_groups_router import (
     router as chat_session_groups_router,
 )
+from src.module.chat_session_tags.chat_session_tags_router import router as chat_session_tags_router
+from src.module.chat_sessions.chat_sessions_router import router as chat_sessions_router
 from src.module.dataset_conversations.dataset_conversations_router import (
     router as dataset_conversations_router,
 )

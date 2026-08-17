@@ -10,17 +10,18 @@ uv run alembic upgrade head
 ```
 
 Set `OPENAI_API_KEY` in `.env` before starting an agent run.
-The `baseline` and `baseline-tool` approaches support all four selectable
+The `baseline`, `baseline-tool`, and `program-of-thought` approaches support all four selectable
 OpenAI models.
 The API can start without a key, but chat runs return a configuration error
 until one is provided.
 
 Chat sessions persist their agent approach, pinned prompt, context, and model. The
 supported approaches are `baseline`, which answers directly from document context,
-and `baseline-tool`, which must use a local arithmetic calculator for
+and `baseline-tool`, which must use a local arithmetic calculator, or
+`program-of-thought`, which must use OpenAI hosted Code Interpreter, for
 document-grounded calculations.
 
-Both approaches run through one shared agent-execution service and select one of two
+All approaches run through one shared agent-execution service and select one of three
 vertical slices. Calculator tool-call UI events are streamed live but are not
 persisted or replayed after reload.
 
@@ -34,10 +35,16 @@ agent_execution/
 ├── repositories/{callbacks.py,in_memory.py}
 └── agent_approach/
     ├── baseline/{run.py,prompts/,context/}
-    └── baseline_tool/{run.py,prompts/,context/}
+    ├── baseline_tool/{run.py,prompts/,context/,tools/}
+    ├── program_of_thought/{run.py,prompts/,context/}
+    └── shared/
+        ├── agents.py
+        ├── context/{document_conversation.py,registry.py}
+        └── tools/code_execution/{provider.py,openai_provider.py}
 ```
 
-The current prompt IDs are `baseline:v1` and `baseline-tool:v1`. Both slices
+The current prompt IDs are `baseline:v1`, `baseline-tool:v1`, and
+`program-of-thought:v1`. All slices
 currently select the shared `document-conversation:v1` context renderer. A session
 pins these immutable IDs when it is created, so later default changes do not alter
 an existing conversation.
@@ -111,7 +118,7 @@ uv run lint-imports        # enforce the contracts in pyproject.toml
 ## ConvFinQA evaluation slice
 
 The isolated harness under `evals/` defaults to dataset `3139`, both registered
-targets (`baseline:v1` and `baseline-tool:v1`), and model `gpt-5.6-luna`. It
+targets (`baseline:v1`, `baseline-tool:v1`, and `program-of-thought:v1`), and model `gpt-5.6-luna`. It
 directly loads the dataset and invokes the shared agent-execution service with an
 in-memory repository; no local web server, SSE parsing, or temporary chat sessions
 are required. Production supplies a callback-backed repository bound to PostgreSQL;

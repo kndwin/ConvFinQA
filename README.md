@@ -59,10 +59,11 @@ For agentic chat, copy `server/.env.example` to `server/.env` and set
 events to the TanStack AI client; PostgreSQL stores sessions and messages.
 
 Dataset chat uses one shared conversation runner with `baseline` as the
-default and `baseline-tool` as the alternate approach. Each approach is a
-vertical slice under `agent_approach/{baseline,baseline_tool}/` with its
+default, with `baseline-tool` and `program-of-thought` as alternate approaches. Each approach is a
+vertical slice under `agent_approach/{baseline,baseline_tool,program_of_thought}/` with its
 `run.py`, markdown prompt registry under `prompts/`, and context registry under
-`context/`. Prompt IDs are `baseline:v1` and `baseline-tool:v1`; both use the
+`context/`; reusable agent infrastructure and code execution providers live under
+`agent_approach/shared/`. Prompt IDs are `baseline:v1`, `baseline-tool:v1`, and `program-of-thought:v1`; all use the
 shared `document-conversation:v1` context definition. Sessions pin approach,
 prompt, context, and model. Tool-call events are
 live-only; persistence stores user and final assistant text, so reloads do not

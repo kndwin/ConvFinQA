@@ -26,8 +26,17 @@ from src.module.agent_execution.agent_execution_util import newest_user_message
 
 
 class AgentExecutionRunner:
-    def __init__(self, baseline: ChatApproach, baseline_tool: ChatApproach) -> None:
-        self.baseline, self.baseline_tool = baseline, baseline_tool
+    def __init__(
+        self,
+        baseline: ChatApproach,
+        baseline_tool: ChatApproach,
+        program_of_thought: ChatApproach | None = None,
+    ) -> None:
+        self.baseline, self.baseline_tool, self.program_of_thought = (
+            baseline,
+            baseline_tool,
+            program_of_thought,
+        )
 
     def _approach(self, approach: AgentApproach) -> ChatApproach:
         match approach:
@@ -35,6 +44,8 @@ class AgentExecutionRunner:
                 return self.baseline
             case AgentApproach.BASELINE_TOOL:
                 return self.baseline_tool
+            case AgentApproach.PROGRAM_OF_THOUGHT if self.program_of_thought is not None:
+                return self.program_of_thought
             case _:
                 raise ValueError("Unsupported agent approach")
 

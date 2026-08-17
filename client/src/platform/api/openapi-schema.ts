@@ -224,7 +224,7 @@ export interface components {
          * AgentApproach
          * @enum {string}
          */
-        AgentApproach: "baseline" | "baseline-tool";
+        AgentApproach: "baseline" | "baseline-tool" | "program-of-thought";
         /**
          * AssistantMessage
          * @description An assistant message.

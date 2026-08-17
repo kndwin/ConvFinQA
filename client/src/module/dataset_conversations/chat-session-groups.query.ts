@@ -41,10 +41,13 @@ export function useCreateChatSessionGroup(datasetConversationId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: components["schemas"]["ChatSessionGroupCreateRequest"]) => {
-      const result = await openapiClient.POST("/dataset-conversations/{dataset_conversation_id}/chat-session-groups", {
-        params: { path: { dataset_conversation_id: datasetConversationId } },
-        body,
-      });
+      const result = await openapiClient.POST(
+        "/dataset-conversations/{dataset_conversation_id}/chat-session-groups",
+        {
+          params: { path: { dataset_conversation_id: datasetConversationId } },
+          body,
+        },
+      );
       if (result.error || !result.data) throw new Error("Could not create playground group");
       return result.data;
     },

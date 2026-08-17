@@ -2,11 +2,19 @@ import unittest
 from typing import cast
 
 from evals.golden import build_golden
-from evals.runner import _event_text
+from evals.runner import _event_text, parse_targets
 from evals.scoring import extract_numeric, score_numeric
 
 
 class GoldenTests(unittest.TestCase):
+    def test_all_three_targets_and_program_default(self):
+        targets = parse_targets(["baseline:v1", "baseline-tool:v1", "program-of-thought:v1"])
+        self.assertEqual(
+            [target.agent_approach.value for target in targets],
+            ["baseline", "baseline-tool", "program-of-thought"],
+        )
+        self.assertEqual(targets[-1].prompt_version, "program-of-thought:v1")
+
     def test_builds_conversational_golden_with_metadata(self):
         golden = build_golden(
             {

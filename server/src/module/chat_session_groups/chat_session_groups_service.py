@@ -1,3 +1,5 @@
+import builtins
+
 from src.module.chat_session_groups.chat_session_groups_repository import ChatSessionGroupRepository
 from src.module.chat_session_groups.chat_session_groups_repository_schema import (
     ChatSessionGroupRepositoryGetParams,
@@ -44,22 +46,22 @@ class ChatSessionGroupService(BaseService):
 
     async def list(
         self, params: ChatSessionGroupServiceListParams
-    ) -> list[tuple[ChatSessionGroupTable, list[ChatSessionTable]]]:
+    ) -> builtins.list[tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]]]:
         return await self.repository.list(params)
 
     async def get(
         self, params: ChatSessionGroupServiceGetParams
-    ) -> tuple[ChatSessionGroupTable, list[ChatSessionTable]] | None:
+    ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.get(params)
 
     async def get_by_id(
         self, params: ChatSessionGroupServiceGetByIdParams
-    ) -> tuple[ChatSessionGroupTable, list[ChatSessionTable]] | None:
+    ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.get_by_id(params)
 
     async def update(
         self, params: ChatSessionGroupServiceUpdateParams
-    ) -> tuple[ChatSessionGroupTable, list[ChatSessionTable]] | None:
+    ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.update(params)
 
     async def delete(self, params: ChatSessionGroupServiceDeleteParams) -> bool:
@@ -67,7 +69,7 @@ class ChatSessionGroupService(BaseService):
 
     async def create(
         self, params: ChatSessionGroupServiceCreateParams
-    ) -> tuple[ChatSessionGroupTable, list[ChatSessionTable]] | None:
+    ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         if (
             await self.dataset_conversations.get(
                 DatasetConversationRepositoryGetParams(
@@ -83,6 +85,7 @@ class ChatSessionGroupService(BaseService):
         self.repository.session.add(group)
         try:
             await self.repository.session.flush()
+            assert group.id is not None
             sessions = []
             for position, config in enumerate(params.configs):
                 session = await self.chat_sessions.create(
@@ -94,6 +97,7 @@ class ChatSessionGroupService(BaseService):
                     ),
                     commit=False,
                 )
+                assert session.id is not None
                 sessions.append(session)
                 self.repository.session.add(
                     ChatSessionToGroupTable(

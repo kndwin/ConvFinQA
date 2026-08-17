@@ -15,6 +15,9 @@ from src.module.agent_execution.agent_approach.baseline.prompts.registry import 
 from src.module.agent_execution.agent_approach.baseline_tool.prompts.registry import (
     resolve as _resolve_tool_prompt,
 )
+from src.module.agent_execution.agent_approach.program_of_thought.prompts.registry import (
+    resolve as _resolve_pot_prompt,
+)
 from src.module.agent_execution.agent_approach.shared.context.document_conversation import VERSION
 from src.module.agent_execution.agent_execution_constants import AgentApproach
 from src.module.agent_execution.agent_execution_runner_schema import PromptVersion
@@ -23,10 +26,15 @@ from evals.golden import build_golden, golden_shape
 from evals.scoring import score_dict, score_numeric
 
 DEFAULT_URL = "http://127.0.0.1:8000"
-TARGETS = {"baseline:v1": "baseline", "baseline-tool:v1": "baseline-tool"}
+TARGETS = {
+    "baseline:v1": "baseline",
+    "baseline-tool:v1": "baseline-tool",
+    "program-of-thought:v1": "program-of-thought",
+}
 TARGET_RESOLVERS = {
     "baseline:v1": _resolve_baseline_prompt,
     "baseline-tool:v1": _resolve_tool_prompt,
+    "program-of-thought:v1": _resolve_pot_prompt,
 }
 
 
@@ -381,7 +389,7 @@ def _args() -> argparse.Namespace:
     parser.add_argument("--base-url", default=DEFAULT_URL)
     parser.add_argument("--mode", choices=("direct", "remote"), default="direct")
     parser.add_argument("--dataset-ids", default="3139")
-    parser.add_argument("--targets", default="baseline:v1,baseline-tool:v1")
+    parser.add_argument("--targets", default="baseline:v1,baseline-tool:v1,program-of-thought:v1")
     parser.add_argument("--model", default="gpt-5.6-luna")
     parser.add_argument("--output-dir", type=Path, default=Path("eval-results"))
     parser.add_argument("--keep-sessions", action="store_true")
