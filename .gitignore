@@ -9,3 +9,4 @@ storybook-static/
 __pycache__/
 *.py[cod]
 /internal/otel-cli/otel-cli
+/server/core/evals/.report/

@@ -1,1 +1,0 @@
-"""Isolated ConvFinQA evaluation harness."""

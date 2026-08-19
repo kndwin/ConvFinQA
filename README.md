@@ -67,9 +67,8 @@ vertical slice under `agent_approach/{baseline,baseline_tool,program_of_thought}
 shared `document-conversation:v1` context definition. Sessions pin approach,
 prompt, context, and model. Tool-call events are
 live-only; persistence stores user and final assistant text, so reloads do not
-restore tool activity. The ConvFinQA evaluator uses this runner directly by
-default (`cd server && uv run --group eval python -m evals.runner`); use
-`--mode remote --base-url URL` for an HTTP/SSE replay.
+restore tool activity. ConvFinQA evaluations use Inspect AI; see the server README
+for the no-call planner, live task, and local results viewer commands.
 Chat sessions accept exactly these model IDs: `gpt-5.6-luna` (the default),
 `gpt-5.6-terra`, `gpt-5.6-sol`, and `gpt-5-mini`. When the model column is
 migrated, existing sessions retain compatibility by becoming `gpt-5-mini`; new
