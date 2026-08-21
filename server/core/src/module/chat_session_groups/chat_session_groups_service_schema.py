@@ -15,9 +15,6 @@ class ChatSessionGroupConfig(BaseModel):
     agent_approach: AgentApproach
     model: OpenAIModel
     tags: list[dict[str, str]] = Field(default_factory=list)
-    ensemble_candidates: list[AgentApproach] | None = Field(
-        default=None, min_length=2, max_length=3
-    )
 
 
 class ChatSessionGroupServiceListParams(ChatSessionGroupRepositoryListParams):

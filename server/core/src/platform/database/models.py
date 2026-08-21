@@ -74,7 +74,6 @@ class ChatSessionTable(SQLModel, table=True):
     prompt_version: str = Field(default="baseline:v1")
     context_version: str = Field(default="document-conversation:v1")
     model: str = Field(default="gpt-5.6-luna")
-    ensemble_config_json: str | None = None
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False),

@@ -11,11 +11,13 @@
     "lint": "pnpm lint:prepare && oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
+    "check": "pnpm test && pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "preview": "vite preview",
-    "generate:api": "openapi-typescript ${VITE_OPENAPI_URL:-http://127.0.0.1:8000/openapi.json} -o src/platform/api/openapi-schema.ts"
+    "generate:api": "openapi-typescript ${VITE_OPENAPI_URL:-http://127.0.0.1:8000/openapi.json} -o src/platform/api/openapi-schema.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -39,6 +41,7 @@
     "react-dom": "^19.1.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "ts-pattern": "^5.9.0",
     "xstate": "^5.32.5",
     "zod": "^4.4.3"
   },
@@ -57,7 +60,8 @@
     "storybook": "^10.5.8",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.2",
-    "vite": "^7.1.2"
+    "vite": "^7.1.2",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.14.0"
 }

@@ -24,7 +24,7 @@ const rule = defineRule({
                 node: statement,
                 message: `Routes must not import ${source}; read ${guide}. Routes delegate data access to page boundaries.`,
               });
-            if (/\.(?:page|ui)(?:\.[^/]*)?$/.test(source)) {
+            if (/\.(?:page|ui|route-adapter)(?:\.[^/]*)?$/.test(source)) {
               for (const specifier of statement.specifiers ?? [])
                 uiImports.add(specifier.local.name);
             }

@@ -57,6 +57,7 @@ class ChatSessionGroupRepository(BaseRepository):
             for group in groups
         ]
 
+    @trace_method("chat_session_group.repository.get")
     async def get(self, params: ChatSessionGroupRepositoryGetParams):
         return await self._details(
             select(ChatSessionGroupTable).where(
@@ -66,6 +67,7 @@ class ChatSessionGroupRepository(BaseRepository):
             )
         )
 
+    @trace_method("chat_session_group.repository.get_by_id")
     async def get_by_id(self, params: ChatSessionGroupRepositoryGetByIdParams):
         return await self._details(
             select(ChatSessionGroupTable).where(
@@ -73,6 +75,7 @@ class ChatSessionGroupRepository(BaseRepository):
             )
         )
 
+    @trace_method("chat_session_group.repository.update")
     async def update(self, params: ChatSessionGroupRepositoryUpdateParams):
         detail = await self.get(params)
         if detail is None:
@@ -84,6 +87,7 @@ class ChatSessionGroupRepository(BaseRepository):
         await self.session.refresh(group)
         return group, sessions
 
+    @trace_method("chat_session_group.repository.delete")
     async def delete(self, params: ChatSessionGroupRepositoryDeleteParams) -> bool:
         detail = await self.get(params)
         if detail is None:

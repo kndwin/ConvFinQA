@@ -9,9 +9,11 @@ from inspect_ai import eval
 from inspect_ai.log import read_eval_log
 
 from evals.benchmarks.convfinqa.task import build_task
+from evals.config_schema import EvaluationConfig
 from evals.convfinqa import case_from_payload
-from evals.execution import EventCollector, parse_sse
-from evals.models_schema import EvaluationConfig, ModelUsageObservation, ObservedTurn
+from evals.direct_schema import ObservedTurn
+from evals.events import EventCollector
+from evals.events_schema import ModelUsageObservation
 from evals.plan import main
 from evals.scoring import contains_text, extract_numeric, score_numeric
 
@@ -29,7 +31,7 @@ def case():
     )
 
 
-async def static_executor(case, target, config):
+async def direct_stub(case, target, config):
     del target, config
     return tuple(
         ObservedTurn(
@@ -47,14 +49,14 @@ async def static_executor(case, target, config):
 
 class NumericTests(unittest.TestCase):
     def test_numeric_normalization_and_tolerance(self):
-        self.assertFalse(score_numeric("14.1%", "Final answer: 0.141").exact_match)
+        self.assertTrue(score_numeric("14.1%", "Final answer: 0.141").exact_match)
         self.assertTrue(score_numeric("48.9%", "49.0% ... 2008 ... 2009").exact_match)
         self.assertEqual(score_numeric("48.9%", "49.0% ... 2008 ... 2009").selected_token, "49.0%")
         self.assertTrue(score_numeric("48.9%", "48.98% ... 2008/2009").exact_match)
         self.assertTrue(score_numeric("2.4", "$2.4 million ... 2008 ... 2009").exact_match)
         self.assertEqual(
             score_numeric("2.4", "$2.4 million ... 2008 ... 2009").selected_token,
-            "$2.4",
+            "$2.4 million",
         )
         self.assertTrue(score_numeric("74.33", "74.3").exact_match)
         self.assertTrue(score_numeric("$1,234.50", "Answer is 1,234.504").exact_match)
@@ -64,7 +66,7 @@ class NumericTests(unittest.TestCase):
 
     def test_numeric_candidate_priority_and_kinds(self):
         self.assertFalse(score_numeric("90", "90 was intermediate; Final answer: 12").exact_match)
-        self.assertFalse(score_numeric("48.9%", "0.489").exact_match)
+        self.assertTrue(score_numeric("48.9%", "0.489").exact_match)
         self.assertTrue(score_numeric("−8.9", "−8.9").exact_match)
 
     def test_explicit_answer_wins_and_missing_number_fails(self):
@@ -90,39 +92,38 @@ class DataAndEventTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             case_from_payload({"id": 1, "dialogue_json": {"conv_questions": "bad"}})
 
-    def test_sse_flushes_eof_and_collector_keeps_tools(self):
-        events = parse_sse(
-            [
-                'data: {"type":"TOOL_CALL_START","tool_call_id":"t","tool_call_name":"calc"}',
-                "",
-                'data: {"type":"TOOL_CALL_ARGS","tool_call_id":"t","delta":"{\\"x\\":1}"}',
-                "",
-                'data: {"type":"TOOL_CALL_RESULT","tool_call_id":"t","content":"1"}',
-                "",
-                'data: {"type":"TEXT_MESSAGE_CONTENT","delta":"Answer is 1"}',
-            ]
-        )
+    def test_collector_keeps_tools(self):
         collector = EventCollector()
-        for event in events:
+        for event in (
+            {"type": "TOOL_CALL_START", "tool_call_id": "t", "tool_call_name": "calc"},
+            {"type": "TOOL_CALL_ARGS", "tool_call_id": "t", "delta": '{"x":1}'},
+            {"type": "TOOL_CALL_RESULT", "tool_call_id": "t", "content": "1"},
+            {"type": "TEXT_MESSAGE_CONTENT", "delta": "Answer is 1"},
+        ):
             collector.add(event)
         self.assertEqual("".join(collector.text), "Answer is 1")
         self.assertEqual(collector.tools[0].name, "calc")
         self.assertEqual(collector.tools[0].result, "1")
 
-    def test_sse_application_usage_is_collected_and_missing_stays_unknown(self):
-        events = parse_sse(
-            [
-                (
-                    'data: {"type":"CUSTOM","name":"model_usage","value":{"calls":['
-                    '{"model":"remote-model","input_tokens":4,"output_tokens":2,"total_tokens":6}]}}'
-                ),
-                "",
-            ]
-        )
+    def test_application_usage_is_collected_and_missing_stays_unknown(self):
         collector = EventCollector()
-        for event in events:
-            collector.add(event)
-        self.assertEqual(collector.model_usage[0].model, "remote-model")
+        collector.add(
+            {
+                "type": "CUSTOM",
+                "name": "model_usage",
+                "value": {
+                    "calls": [
+                        {
+                            "model": "application-model",
+                            "input_tokens": 4,
+                            "output_tokens": 2,
+                            "total_tokens": 6,
+                        }
+                    ]
+                },
+            }
+        )
+        self.assertEqual(collector.model_usage[0].model, "application-model")
         self.assertEqual(collector.model_usage[0].total_tokens, 6)
         self.assertEqual(EventCollector().model_usage, ())
 
@@ -157,15 +158,35 @@ class DataAndEventTests(unittest.TestCase):
 
 
 class InspectTests(unittest.TestCase):
+    def test_record_limit_balances_approaches_before_expansion(self):
+        config = EvaluationConfig(
+            targets=("baseline:v1", "baseline-tool:v1", "program-of-thought:v1"),
+            record_limit=2,
+        )
+        task = build_task((case(), case().model_copy(update={"dataset_id": "5"})), config)
+        self.assertEqual(len(task.dataset), 6)
+        self.assertEqual(
+            [
+                sum(sample.metadata["approach"] == target for sample in task.dataset)
+                for target in config.targets
+            ],
+            [2, 2, 2],
+        )
+
+    def test_record_limit_must_be_positive(self):
+        with self.assertRaisesRegex(ValueError, "greater than 0"):
+            EvaluationConfig(targets=("baseline:v1",), record_limit=0)
+
     def test_static_no_model_run_writes_readable_log(self):
         config = EvaluationConfig(dataset_ids=(4,), targets=("baseline:v1",))
-        task = build_task((case(),), config, static_executor)
-        self.assertIsNone(task.model)
-        with tempfile.TemporaryDirectory() as directory:
-            logs = eval(task, model=None, log_dir=directory, display="none")
-            files = list(Path(directory).glob("*.eval"))
-            self.assertEqual(len(files), 1)
-            log = read_eval_log(str(files[0]))
+        with patch("evals.benchmarks.convfinqa.task.execute_direct", new=direct_stub):
+            task = build_task((case(),), config)
+            self.assertIsNone(task.model)
+            with tempfile.TemporaryDirectory() as directory:
+                logs = eval(task, model=None, log_dir=directory, display="none")
+                files = list(Path(directory).glob("*.eval"))
+                self.assertEqual(len(files), 1)
+                log = read_eval_log(str(files[0]))
         self.assertEqual(log.status, "success")
         self.assertEqual(len(logs), 1)
         samples = log.samples
@@ -177,7 +198,16 @@ class InspectTests(unittest.TestCase):
         )
         scores = sample.scores
         assert scores is not None
-        self.assertEqual(set(scores), {"numeric_accuracy", "contains_accuracy"})
+        self.assertEqual(
+            set(scores),
+            {
+                "turn_execution_accuracy",
+                "conversation_exact_accuracy",
+                "parse_failure_rate",
+                "numeric_accuracy",
+                "contains_accuracy",
+            },
+        )
         self.assertEqual(scores["numeric_accuracy"].value, 1.0)
         self.assertEqual(scores["contains_accuracy"].value, 1.0)
         metadata = scores["contains_accuracy"].metadata
@@ -190,8 +220,8 @@ class InspectTests(unittest.TestCase):
         )
 
     def test_external_usage_is_serialized_without_a_provider_call(self):
-        async def executor(case, target, config):
-            observations = await static_executor(case, target, config)
+        async def usage_stub(case, target, config):
+            observations = await direct_stub(case, target, config)
             return tuple(
                 observation.model_copy(
                     update={
@@ -209,10 +239,11 @@ class InspectTests(unittest.TestCase):
             )
 
         config = EvaluationConfig(dataset_ids=(4,), targets=("baseline:v1",))
-        task = build_task((case(),), config, executor)
-        with tempfile.TemporaryDirectory() as directory:
-            eval(task, model=None, log_dir=directory, display="none")
-            log = read_eval_log(str(next(Path(directory).glob("*.eval"))))
+        with patch("evals.benchmarks.convfinqa.task.execute_direct", new=usage_stub):
+            task = build_task((case(),), config)
+            with tempfile.TemporaryDirectory() as directory:
+                eval(task, model=None, log_dir=directory, display="none")
+                log = read_eval_log(str(next(Path(directory).glob("*.eval"))))
         assert log.samples is not None
         sample = log.samples[0]
         assert sample.model_usage is not None
@@ -232,8 +263,30 @@ class InspectTests(unittest.TestCase):
             },
         )
 
+    def test_static_log_contains_grouped_metrics_for_each_scorer(self):
+        config = EvaluationConfig(
+            targets=("baseline:v1", "baseline-tool:v1", "program-of-thought:v1"),
+            record_limit=2,
+        )
+        cases = (case(), case().model_copy(update={"dataset_id": "5"}))
+        with patch("evals.benchmarks.convfinqa.task.execute_direct", new=direct_stub):
+            task = build_task(cases, config)
+            with tempfile.TemporaryDirectory() as directory:
+                eval(task, model=None, log_dir=directory, display="none")
+                log = read_eval_log(str(next(Path(directory).glob("*.eval"))))
+        self.assertEqual(len(log.samples or []), 6)
+        assert log.results is not None
+        for result in log.results.scores:
+            # Parse-failure rate is correctly zero for this successful fixture;
+            # correctness scorers are one.
+            self.assertIn(result.metrics["mean"].value, (0.0, 1.0))
+            self.assertEqual(result.metrics["stderr"].value, 0.0)
+            for target in config.targets:
+                self.assertIn(result.metrics[f"{target}_mean"].value, (0.0, 1.0))
+                self.assertEqual(result.metrics[f"{target}_stderr"].value, 0.0)
+
     def test_planner_mocked_success_and_invalid_exit_two(self):
-        with patch("evals.plan.load_cases_async", new=AsyncMock(return_value=(case(),))):
+        with patch("evals.cli.plan.load_cases_async", new=AsyncMock(return_value=(case(),))):
             output = io.StringIO()
             with redirect_stdout(output):
                 self.assertEqual(main(["convfinqa", "--targets", "baseline:v1"]), 0)

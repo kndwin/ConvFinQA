@@ -4,10 +4,9 @@ from collections.abc import AsyncIterator
 from typing import Protocol
 
 from ag_ui.core import BaseEvent
-from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 
-from src.module.agent_execution.agent_execution_constants import AgentApproach, OpenAIModel
+from src.module.agent_execution.agent_execution_constants import AgentApproach
 from src.module.agent_execution.agent_execution_repository_schema import ConversationMessage
 
 
@@ -39,15 +38,18 @@ class ApproachInput(BaseModel):
 
     prompt: PromptVersion
     context: RenderedContext
-    model: OpenAIModel
+    model: str
     trace_metadata: dict[str, str]
     assistant_message_id: str
     transcript: tuple[ConversationMessage, ...]
     question: str
+    # Private run input.  Approaches must never put this value in rendered context.
+    document: str = ""
 
 
 class ChatApproach(Protocol):
-    client: AsyncOpenAI | None
+    @property
+    def is_configured(self) -> bool: ...
 
     def resolve_prompt(self, prompt_id: str) -> PromptVersion: ...
 

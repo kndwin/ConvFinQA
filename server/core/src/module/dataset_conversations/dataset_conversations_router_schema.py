@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class CandidateQuestionAnswer(BaseModel):
@@ -56,4 +56,9 @@ class DatasetConversationResponse(BaseModel):
     features_json: str
     doc_json: str | None
     dialogue_json: str
-    candidate_qa: list[CandidateQuestionAnswer]
+
+    @computed_field
+    @property
+    def candidate_qa(self) -> list[CandidateQuestionAnswer]:
+        """Extract candidate questions from the stored dialogue payload."""
+        return candidate_qa_from_dialogue_json(self.dialogue_json)

@@ -1,22 +1,20 @@
 import asyncio
 from collections.abc import AsyncGenerator
 
+from agents.models.interface import ModelProvider
 from dishka import Provider, Scope, provide
-from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.module.agent_execution.agent_execution_service import AgentExecutionService
-from src.module.agent_execution.execution.durable.durable_execution_backend import (
-    DurableExecutionBackend,
+from src.module.agent_execution.agent_approach.shared.tools.code_execution.provider import (
+    CodeExecutionProvider,
 )
+from src.module.agent_execution.agent_execution_service import AgentExecutionService
 from src.module.chat_session_groups.chat_session_groups_repository import ChatSessionGroupRepository
 from src.module.chat_session_groups.chat_session_groups_service import ChatSessionGroupService
 from src.module.chat_session_tags.chat_session_tags_repository import ChatSessionTagRepository
 from src.module.chat_session_tags.chat_session_tags_service import ChatSessionTagService
-from src.module.chat_sessions.chat_session_run_adapter import ChatSessionRunAdapter
 from src.module.chat_sessions.chat_sessions_repository import ChatSessionRepository
 from src.module.chat_sessions.chat_sessions_service import ChatSessionService
-from src.module.chat_sessions.run_execution_coordinator import RunExecutionCoordinator
 from src.module.dataset_conversations.dataset_conversations_repository import (
     DatasetConversationRepository,
 )
@@ -25,7 +23,8 @@ from src.module.dataset_conversations.dataset_conversations_service import (
 )
 from src.platform.database.database import session_factory
 from src.platform.observability import Observability, get_observability
-from src.platform.openai import openai_client as provide_openai_client
+from src.platform.openai import model_provider as provide_model_provider
+from src.platform.openai.code_execution_provider import OpenAICodeExecutionProvider
 
 
 class ApplicationProvider(Provider):
@@ -36,9 +35,13 @@ class ApplicationProvider(Provider):
         return get_observability()
 
     @provide(scope=Scope.APP)
-    async def openai_client(self) -> AsyncGenerator[AsyncOpenAI | None]:
-        async with provide_openai_client() as client:
-            yield client
+    async def model_provider(self) -> AsyncGenerator[ModelProvider | None]:
+        async with provide_model_provider() as provider:
+            yield provider
+
+    @provide(scope=Scope.APP)
+    def code_execution_provider(self) -> CodeExecutionProvider:
+        return OpenAICodeExecutionProvider()
 
     @provide(scope=Scope.REQUEST)
     async def session(self) -> AsyncGenerator[AsyncSession, BaseException | None]:
@@ -98,33 +101,6 @@ class ApplicationProvider(Provider):
         )
 
     @provide(scope=Scope.REQUEST)
-    def chat_session_run_adapter(
-        self,
-        chat_sessions_repository: ChatSessionRepository,
-        dataset_conversation_repository: DatasetConversationRepository,
-        agent_execution_service: AgentExecutionService,
-        durable_execution_backend: DurableExecutionBackend,
-    ) -> ChatSessionRunAdapter:
-        return ChatSessionRunAdapter(
-            chat_sessions_repository,
-            dataset_conversation_repository,
-            agent_execution_service,
-            durable_execution_backend,
-        )
-
-    @provide(scope=Scope.APP)
-    def durable_execution_backend(self) -> DurableExecutionBackend:
-        return DurableExecutionBackend()
-
-    @provide(scope=Scope.REQUEST)
-    def run_execution_coordinator(
-        self,
-        chat_sessions_service: ChatSessionService,
-        chat_session_run_adapter: ChatSessionRunAdapter,
-    ) -> RunExecutionCoordinator:
-        return RunExecutionCoordinator(chat_sessions_service, chat_session_run_adapter)
-
-    @provide(scope=Scope.REQUEST)
     def chat_session_group_repository(
         self, session: AsyncSession, observability: Observability
     ) -> ChatSessionGroupRepository:
@@ -146,5 +122,7 @@ class ApplicationProvider(Provider):
         )
 
     @provide(scope=Scope.APP)
-    def agent_execution_service(self, client: AsyncOpenAI | None) -> AgentExecutionService:
-        return AgentExecutionService(client)
+    def agent_execution_service(
+        self, model_provider: ModelProvider | None, code_execution_provider: CodeExecutionProvider
+    ) -> AgentExecutionService:
+        return AgentExecutionService(model_provider, code_execution_provider)

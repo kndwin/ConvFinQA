@@ -1,54 +1,37 @@
 import sys
-from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any
 
 # Inspect loads task files in an isolated module context during `inspect eval`.
-# Its synthetic package name is non-empty, so add the server root unconditionally.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+# Its synthetic package name is non-empty, so add the server project root when
+# loading this file directly rather than importing it as part of ``evals``.
+core_root = Path(__file__).resolve().parents[3]
+if str(core_root) not in sys.path:
+    sys.path.insert(0, str(core_root))
 
-from inspect_ai import Task, task
-from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import ChatMessageAssistant, ChatMessageUser, ModelUsage
-from inspect_ai.scorer import Score, mean, scorer
-from inspect_ai.solver import TaskState, solver
+# Evals are intentionally source tasks outside the production wheel. Keeping the
+# dataset beside this task makes ``inspect eval <path>`` independent of cwd,
+# without adding an Inspect entry point (or packaging benchmark-only code).
+DEFAULT_DATASET_PATH = Path(__file__).resolve().parents[2] / "data" / "convfinqa_dataset.json"
 
-from evals.convfinqa import load_cases
-from evals.execution import execute_direct, execute_remote
-from evals.models_schema import ConversationCase, EvaluationConfig, ObservedTurn, TargetSpec
-from evals.scoring import contains_text, score_dict, score_numeric
-from evals.targets import resolve_target
+from inspect_ai import Task, task  # noqa: E402
+from inspect_ai.dataset import MemoryDataset, Sample  # noqa: E402
+from inspect_ai.model import ChatMessageAssistant, ChatMessageUser  # noqa: E402
+from inspect_ai.solver import TaskState, solver  # noqa: E402
 
-Executor = Callable[
-    [ConversationCase, TargetSpec, EvaluationConfig], Awaitable[tuple[ObservedTurn, ...]]
-]
-
-
-def record_application_usage(observations: tuple[ObservedTurn, ...]) -> None:
-    """Bridge real application usage into Inspect's sample bookkeeping.
-
-    Inspect 0.3.259 has no public API for an externally executed completion. Its
-    native bookkeeping primitive is nevertheless provider-independent: updating
-    the active sample's model-usage map does not create a model or make a call.
-    """
-    # inspect-ai 0.3.259 has no public API for recording externally executed usage.
-    # Keep this narrow pin: these private bookkeeping helpers are version-sensitive.
-    from inspect_ai.model._model import sample_model_usage, set_model_usage
-
-    usage_by_model: dict[str, ModelUsage] = {}
-    for turn in observations:
-        for usage in turn.model_usage:
-            current = usage_by_model.get(usage.model, ModelUsage())
-            usage_by_model[usage.model] = current + ModelUsage(
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                total_tokens=usage.total_tokens,
-                input_tokens_cache_read=usage.cached_input_tokens,
-                input_tokens_cache_write=usage.cache_write_tokens,
-                reasoning_tokens=usage.reasoning_tokens,
-            )
-    for model, usage in usage_by_model.items():
-        set_model_usage(model, usage, sample_model_usage())
+from evals.benchmarks.convfinqa.cases_schema import ConversationCase  # noqa: E402
+from evals.benchmarks.convfinqa.scorers import (  # noqa: E402
+    contains_accuracy,
+    conversation_exact_accuracy,
+    numeric_accuracy,
+    parse_failure_rate,
+    turn_execution_accuracy,
+)
+from evals.config_schema import EvaluationConfig  # noqa: E402
+from evals.convfinqa import load_cases  # noqa: E402
+from evals.direct import execute_direct  # noqa: E402
+from evals.inspect_support import record_application_usage  # noqa: E402
+from evals.targets import component_metadata, resolve_target  # noqa: E402
 
 
 def _csv(value: str | int | list[str] | list[int]) -> tuple[str, ...]:
@@ -56,92 +39,14 @@ def _csv(value: str | int | list[str] | list[int]) -> tuple[str, ...]:
     return tuple(str(item).strip() for item in values if str(item).strip())
 
 
-@scorer(metrics=[mean()])
-def numeric_accuracy():
-    """Score every conversation turn using candidate-based numeric matching."""
-
-    async def score(state: TaskState, target: Any) -> Score:
-        del target
-        observations = tuple(
-            ObservedTurn.model_validate(item) for item in state.metadata.get("observations", [])
-        )
-        details = tuple(
-            score_numeric(observation.expected or "", observation.actual)
-            for observation in observations
-        )
-        accuracy = sum(detail.exact_match for detail in details) / len(details) if details else 0.0
-        return Score(
-            value=accuracy,
-            answer=observations[-1].actual if observations else "",
-            explanation=(
-                f"{sum(detail.exact_match for detail in details)}/{len(details)} turns correct"
-            ),
-            metadata={
-                "fully_correct_conversation": bool(details)
-                and all(detail.exact_match for detail in details),
-                "relative_tolerance": 0.01,
-                "limitations": (
-                    "Candidate-based numeric matching can pass intermediate mentions; "
-                    "an explicit Final answer/Answer is candidate takes priority."
-                ),
-                "turns": [
-                    {
-                        "observation": observation.model_dump(mode="json"),
-                        "score": score_dict(detail),
-                    }
-                    for observation, detail in zip(observations, details, strict=True)
-                ],
-            },
-        )
-
-    return score
-
-
-@scorer(metrics=[mean()])
-def contains_accuracy():
-    """Score every conversation turn using literal substring matching."""
-
-    async def score(state: TaskState, target: Any) -> Score:
-        del target
-        observations = tuple(
-            ObservedTurn.model_validate(item) for item in state.metadata.get("observations", [])
-        )
-        details = tuple(
-            contains_text(observation.expected, observation.actual) for observation in observations
-        )
-        matching = sum(details)
-        accuracy = matching / len(details) if details else 0.0
-        return Score(
-            value=accuracy,
-            answer=observations[-1].actual if observations else "",
-            explanation=f"{matching}/{len(details)} turns contain the expected text",
-            metadata={
-                "fully_correct_conversation": bool(details) and all(details),
-                "turns": [
-                    {
-                        "turn": observation.turn,
-                        "expected": observation.expected,
-                        "actual": observation.actual,
-                        "contains": contains,
-                    }
-                    for observation, contains in zip(observations, details, strict=True)
-                ],
-                "limitations": (
-                    "Literal, case-sensitive substring matching can pass intermediate "
-                    "mentions and is sensitive to formatting."
-                ),
-            },
-        )
-
-    return score
-
-
 def build_task(
     cases: tuple[ConversationCase, ...],
     config: EvaluationConfig,
-    executor: Executor,
 ) -> Task:
     targets = tuple(resolve_target(target_id) for target_id in config.targets)
+    # Apply this before the record/target cartesian product so every approach
+    # receives exactly the same records.
+    selected_cases = cases[: config.record_limit] if config.record_limit is not None else cases
     samples = [
         Sample(
             id=f"{case.dataset_id}:{target.id}",
@@ -150,10 +55,14 @@ def build_task(
             metadata={
                 "case": case.model_dump(mode="json"),
                 "target": target.id,
+                "approach": target.id,
+                "dataset_id": case.dataset_id,
+                "source_id": case.source_id,
                 "target_metadata": target.metadata(config.application_model),
+                "prompt_components": component_metadata(target.id),
             },
         )
-        for case in cases
+        for case in selected_cases
         for target in targets
     ]
 
@@ -162,7 +71,7 @@ def build_task(
         async def solve(state: TaskState, generate: Any) -> TaskState:
             case = ConversationCase.model_validate(state.metadata["case"])
             target = resolve_target(str(state.metadata["target"]))
-            observations = await executor(case, target, config)
+            observations = await execute_direct(case, target, config)
             record_application_usage(observations)
             state.messages.clear()
             for observation in observations:
@@ -181,10 +90,15 @@ def build_task(
         name="convfinqa",
         dataset=MemoryDataset(samples=samples, name="convfinqa"),
         solver=run_application(),
-        scorer=[numeric_accuracy(), contains_accuracy()],
+        scorer=[
+            turn_execution_accuracy(),
+            conversation_exact_accuracy(),
+            parse_failure_rate(),
+            numeric_accuracy(),
+            contains_accuracy(),
+        ],
         model=None,
         metadata={
-            "executor": config.executor,
             "application_model": config.application_model,
         },
     )
@@ -192,22 +106,21 @@ def build_task(
 
 @task
 def convfinqa(
-    dataset_ids: str | int | list[int] = "3139",
+    dataset_ids: str | int | list[str | int] | None = None,
     targets: str | list[str] = "baseline:v1,baseline-tool:v1,program-of-thought:v1",
-    executor: str = "direct",
     application_model: str = "gpt-5.6-luna",
-    base_url: str = "http://127.0.0.1:8000",
-    keep_sessions: bool = False,
+    dataset_path: str | None = None,
+    split: str = "dev",
+    record_limit: int | None = None,
 ) -> Task:
     """Run fixed ConvFinQA conversations through the production application."""
     config = EvaluationConfig(
-        dataset_ids=tuple(int(item) for item in _csv(dataset_ids)),
+        dataset_ids=_csv(dataset_ids or ""),
         targets=_csv(targets),
-        executor=cast(Literal["direct", "remote"], executor),
         application_model=application_model,
-        base_url=base_url,
-        keep_sessions=keep_sessions,
+        dataset_path=dataset_path or str(DEFAULT_DATASET_PATH),
+        split=split or "dev",
+        record_limit=record_limit,
     )
     cases = load_cases(config)
-    selected_executor = execute_direct if config.executor == "direct" else execute_remote
-    return build_task(cases, config, selected_executor)
+    return build_task(cases, config)

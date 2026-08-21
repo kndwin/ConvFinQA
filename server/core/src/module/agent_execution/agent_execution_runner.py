@@ -30,11 +30,13 @@ class AgentExecutionRunner:
         baseline: ChatApproach,
         baseline_tool: ChatApproach,
         program_of_thought: ChatApproach | None = None,
+        evidence: ChatApproach | None = None,
     ) -> None:
-        self.baseline, self.baseline_tool, self.program_of_thought = (
+        self.baseline, self.baseline_tool, self.program_of_thought, self.evidence = (
             baseline,
             baseline_tool,
             program_of_thought,
+            evidence,
         )
 
     def resolve_approach(self, approach: AgentApproach) -> ChatApproach:
@@ -45,6 +47,8 @@ class AgentExecutionRunner:
                 return self.baseline_tool
             case AgentApproach.PROGRAM_OF_THOUGHT if self.program_of_thought is not None:
                 return self.program_of_thought
+            case AgentApproach.EVIDENCE if self.evidence is not None:
+                return self.evidence
             case _:
                 raise ValueError("Unsupported agent approach")
 
@@ -58,21 +62,12 @@ class AgentExecutionRunner:
             yield RunErrorEvent(message="A user message is required", code="invalid_input")
             return
         question, client_id = selected
-        if params.approach is AgentApproach.ENSEMBLE:
-            # Ensemble execution is durable and must be dispatched by the Temporal
-            # application adapter.  Keeping it out of this synchronous AG-UI runner
-            # prevents orphaned model calls and duplicate finalization on reconnect.
-            yield RunErrorEvent(
-                message="Ensemble runs require Temporal execution",
-                code="ensemble_temporal_required",
-            )
-            return
         try:
             approach = self.resolve_approach(params.approach)
         except ValueError as error:
             yield RunErrorEvent(message=str(error), code="run_error")
             return
-        if approach.client is None:
+        if not approach.is_configured:
             yield RunErrorEvent(
                 message="The assistant is not configured on the server",
                 code="configuration_error",
@@ -103,6 +98,11 @@ class AgentExecutionRunner:
             "context_hash": rendered.version.definition_hash,
             "model": str(params.model),
         }
+        if params.approach == AgentApproach.EVIDENCE:
+            metadata.update(
+                evidence_index_version="evidence-index:v1",
+                evidence_tool_version="evidence-tools:v1",
+            )
         try:
             data = ApproachInput(
                 prompt=prompt,
@@ -111,7 +111,8 @@ class AgentExecutionRunner:
                 trace_metadata=metadata,
                 assistant_message_id=message_id,
                 transcript=prior,
-                question=question,
+            question=question,
+            document=params.document,
             )
             stream = approach.stream(data)
             yield RunStartedEvent(

@@ -3,13 +3,14 @@ from typing import Annotated
 from dishka import FromDishka
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi.encoders import jsonable_encoder
+from pydantic import StringConstraints, ValidationError
 
 from src.module.dataset_conversations.dataset_conversations_constants import (
     DATASET_CONVERSATION_MAX_LIMIT,
 )
 from src.module.dataset_conversations.dataset_conversations_router_schema import (
     DatasetConversationResponse,
-    candidate_qa_from_dialogue_json,
 )
 from src.module.dataset_conversations.dataset_conversations_service import (
     DatasetConversationService,
@@ -20,17 +21,6 @@ from src.module.dataset_conversations.dataset_conversations_service_schema impor
 )
 
 router = APIRouter(prefix="/dataset-conversations", tags=["dataset-conversations"])
-
-
-def _response(item: object) -> DatasetConversationResponse:
-    dialogue_json = getattr(item, "dialogue_json", "")
-    values = {
-        field: getattr(item, field)
-        for field in DatasetConversationResponse.model_fields
-        if field != "candidate_qa"
-    }
-    values["candidate_qa"] = candidate_qa_from_dialogue_json(dialogue_json)
-    return DatasetConversationResponse.model_validate(values)
 
 
 @router.get(
@@ -47,11 +37,17 @@ async def list_dataset_conversations(
         int,
         Query(ge=1, le=DATASET_CONVERSATION_MAX_LIMIT, description="Maximum results to return"),
     ] = 20,
+    tags: Annotated[
+        list[Annotated[str, StringConstraints(min_length=1, max_length=100)]] | None,
+        Query(max_length=50, description="Chat session tags (OR filtered)"),
+    ] = None,
 ) -> list[DatasetConversationResponse]:
-    dataset_conversations = await service.list(
-        DatasetConversationServiceListParams(offset=offset, limit=limit)
-    )
-    return [_response(item) for item in dataset_conversations]
+    try:
+        params = DatasetConversationServiceListParams(offset=offset, limit=limit, tags=tags or [])
+    except ValidationError as error:
+        raise HTTPException(status_code=422, detail=jsonable_encoder(error.errors())) from error
+    dataset_conversations = await service.list(params)
+    return [DatasetConversationResponse.model_validate(item) for item in dataset_conversations]
 
 
 @router.get(
@@ -72,4 +68,4 @@ async def get_dataset_conversation(
     )
     if dataset_conversation is None:
         raise HTTPException(status_code=404, detail="Dataset conversation not found")
-    return _response(dataset_conversation)
+    return DatasetConversationResponse.model_validate(dataset_conversation)

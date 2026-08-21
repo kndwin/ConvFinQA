@@ -14,9 +14,6 @@ class ChatSessionGroupConfig(BaseModel):
     agent_approach: AgentApproach
     model: OpenAIModel
     tags: list[ChatSessionTagInput] = Field(default_factory=list, max_length=50)
-    ensemble_candidates: list[AgentApproach] | None = Field(
-        default=None, min_length=2, max_length=3
-    )
 
 
 class ChatSessionGroupCreateRequest(BaseModel):

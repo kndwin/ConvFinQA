@@ -1,20 +1,15 @@
 import builtins
-import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
-from src.module.agent_execution.agent_approach.ensemble.definition import (
-    build_pinned_ensemble_config,
-)
 from src.module.agent_execution.agent_execution_constants import (
     DEFAULT_CONTEXT_VERSION,
     DEFAULT_PROMPT_VERSIONS,
-    REVIEWER_PROMPT_VERSION,
 )
 from src.module.chat_sessions.chat_sessions_repository_schema import (
     ChatSessionRepositoryCreateParams,
@@ -26,7 +21,6 @@ from src.module.chat_sessions.chat_sessions_repository_schema import (
     ChatSessionRepositoryUpdateParams,
 )
 from src.platform.database.models import (
-    AgentRunTable,
     ChatMessageTable,
     ChatSessionTable,
     ChatSessionTagTable,
@@ -111,61 +105,6 @@ class ChatSessionRepository(BaseRepository):
             chat_session.title = params.content[:60]
         await self._commit()
 
-    async def prepare_run(
-        self, chat_session_id: int, run_id: str, model: str, workflow_id: str
-    ) -> AgentRunTable:
-        """Get-or-create a durable run, rejecting a globally colliding run id."""
-        result = await self.session.execute(
-            select(AgentRunTable).where(col(AgentRunTable.run_id) == run_id)
-        )
-        existing = result.scalar_one_or_none()
-        if existing is not None:
-            if existing.chat_session_id != chat_session_id:
-                raise ValueError("run does not belong to this chat session") from None
-            return existing
-        row = AgentRunTable(
-            run_id=run_id,
-            chat_session_id=chat_session_id,
-            status="running",
-            model=model,
-            temporal_workflow_id=workflow_id,
-            started_at=datetime.now(UTC),
-        )
-        self.session.add(row)
-        try:
-            await self.session.commit()
-            await self.session.refresh(row)
-        except Exception:
-            await self.session.rollback()
-            result = await self.session.execute(
-                select(AgentRunTable).where(col(AgentRunTable.run_id) == run_id)
-            )
-            existing = result.scalar_one_or_none()
-            if existing is None:
-                raise
-            if existing.chat_session_id != chat_session_id:
-                raise ValueError("run does not belong to this chat session") from None
-            return existing
-        return row
-
-    async def get_run(self, chat_session_id: int, run_id: str) -> AgentRunTable | None:
-        result = await self.session.execute(
-            select(AgentRunTable).where(
-                col(AgentRunTable.chat_session_id) == chat_session_id,
-                col(AgentRunTable.run_id) == run_id,
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def mark_run_cancelled(self, chat_session_id: int, run_id: str) -> None:
-        run = await self.get_run(chat_session_id, run_id)
-        if run is None or run.status in {"completed", "failed", "cancelled"}:
-            return
-        run.status = "cancelled"
-        run.error = "cancelled by client"
-        run.completed_at = datetime.now(UTC)
-        await self._commit()
-
     @trace_method("chat_session.repository.persist_assistant_message")
     async def persist_assistant_message(
         self,
@@ -186,24 +125,12 @@ class ChatSessionRepository(BaseRepository):
     async def create(
         self, params: ChatSessionRepositoryCreateParams, *, commit: bool = True
     ) -> ChatSessionTable:
-        ensemble_config = None
-        if params.agent_approach.value == "ensemble":
-            ensemble_config = build_pinned_ensemble_config(
-                params.ensemble_candidates or ()
-            ).model_dump(mode="json")
         chat_session = ChatSessionTable(
             dataset_conversation_id=params.dataset_conversation_id,
             agent_approach=str(params.agent_approach),
-            prompt_version=(
-                REVIEWER_PROMPT_VERSION
-                if params.agent_approach.value == "ensemble"
-                else DEFAULT_PROMPT_VERSIONS[params.agent_approach]
-            ),
+            prompt_version=(DEFAULT_PROMPT_VERSIONS[params.agent_approach]),
             context_version=DEFAULT_CONTEXT_VERSION,
             model=str(params.model),
-            ensemble_config_json=json.dumps(ensemble_config)
-            if ensemble_config is not None
-            else None,
         )
         self.session.add(chat_session)
         try:
@@ -261,11 +188,43 @@ class ChatSessionRepository(BaseRepository):
         )
         if chat_session is None:
             return None
-        chat_session.title = params.title
+        if params.title_provided:
+            chat_session.title = params.title
         chat_session.updated_at = datetime.now(UTC)
         try:
+            if params.tags_provided:
+                values = [tag.value for tag in (params.tags or [])]
+                if values:
+                    await self.session.execute(
+                        postgres_insert(ChatSessionTagTable)
+                        .values([{"value": value} for value in values])
+                        .on_conflict_do_nothing(index_elements=["value"])
+                    )
+                    result = await self.session.execute(
+                        select(ChatSessionTagTable).where(col(ChatSessionTagTable.value).in_(values))
+                    )
+                    tags_by_value = {tag.value: tag for tag in result.scalars().all()}
+                    await self.session.flush()
+                else:
+                    tags_by_value = {}
+                await self.session.execute(
+                    delete(ChatSessionToTagTable).where(
+                        ChatSessionToTagTable.chat_session_id == chat_session.id
+                    )
+                )
+                for tag in tags_by_value.values():
+                    self.session.add(
+                        ChatSessionToTagTable(
+                            chat_session_id=chat_session.id, tag_id=cast(int, tag.id)
+                        )
+                    )
             await self.session.commit()
-            await self.session.refresh(chat_session)
+            result = await self.session.execute(
+                select(ChatSessionTable)
+                .options(selectinload(cast(Any, ChatSessionTable.tags)))
+                .where(col(ChatSessionTable.id) == chat_session.id)
+            )
+            chat_session = result.scalar_one()
         except Exception:
             await self.session.rollback()
             raise
@@ -282,9 +241,5 @@ class ChatSessionRepository(BaseRepository):
         if chat_session is None:
             return False
         await self.session.delete(chat_session)
-        try:
-            await self.session.commit()
-        except Exception:
-            await self.session.rollback()
-            raise
+        await self.session.commit()
         return True

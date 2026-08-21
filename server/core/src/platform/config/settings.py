@@ -19,17 +19,6 @@ class Settings(BaseSettings):
     otel_exporter_otlp_traces_protocol: str | None = None
     otel_exporter_otlp_traces_endpoint: str | None = None
     otel_exporter_otlp_headers: str | None = None
-    temporal_enabled: bool = False
-    temporal_address: str = "127.0.0.1:7233"
-    temporal_namespace: str = "default"
-    temporal_task_queue: str = "agent-execution"
-    temporal_model_start_to_close_seconds: int = 300
-    temporal_model_schedule_to_close_seconds: int = 600
-    temporal_model_heartbeat_seconds: int = 30
-    temporal_model_max_attempts: int = 2
-    temporal_ensemble_execution_timeout_seconds: int = 900
-    temporal_max_concurrent_activities: int = 8
-    temporal_streaming_topic: str = "agent-output"
 
 
 config = Settings()

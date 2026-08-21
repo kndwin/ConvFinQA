@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from typing import Annotated, cast
@@ -10,12 +9,6 @@ from dishka.integrations.fastapi import inject
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import StreamingResponse
 
-from src.module.agent_execution.execution.durable.durable_execution_backend import (
-    TemporalUnavailableError,
-)
-from src.module.chat_sessions.chat_session_run_adapter import (
-    ChatSessionRunAdapter,
-)
 from src.module.chat_sessions.chat_sessions_router_schema import (
     ChatMessageResponse,
     ChatSessionCreateRequest,
@@ -30,7 +23,6 @@ from src.module.chat_sessions.chat_sessions_service_schema import (
     ChatSessionServiceListParams,
     ChatSessionServiceUpdateParams,
 )
-from src.module.chat_sessions.run_execution_coordinator import RunExecutionCoordinator
 
 router = APIRouter(tags=["chat-sessions"])
 
@@ -83,7 +75,6 @@ async def create_chat_session(
             agent_approach=selection.agent_approach,
             model=selection.model,
             tags=[{"value": tag.value} for tag in selection.tags],
-            ensemble_candidates=selection.ensemble_candidates,
         )
     )
     if session is None:
@@ -147,6 +138,13 @@ async def update_chat_session(
             dataset_conversation_id=dataset_conversation_id,
             chat_session_id=chat_session_id,
             title=payload.title,
+            title_provided="title" in payload.model_fields_set,
+            tags=(
+                [{"value": tag.value} for tag in payload.tags]
+                if payload.tags is not None
+                else None
+            ),
+            tags_provided="tags" in payload.model_fields_set,
         )
     )
     if session is None:
@@ -183,22 +181,14 @@ async def run_agent(
     chat_session_id: Annotated[int, Path(gt=0)],
     input_data: RunAgentInput,
     request: Request,
-    coordinator: FromDishka[RunExecutionCoordinator],
+    service: FromDishka[ChatSessionService],
 ) -> StreamingResponse:
     encoder = EventEncoder(request.headers.get("accept") or "text/event-stream")
-    try:
-        # Do this before constructing the response so disabled Temporal remains
-        # an HTTP 503 rather than an error hidden inside a 200 SSE body.
-        plan = await coordinator.prepare(dataset_conversation_id, chat_session_id, input_data)
-    except TemporalUnavailableError as error:
-        raise HTTPException(503, "Temporal is unavailable") from error
-    except LookupError as error:
-        raise HTTPException(404, "Chat session not found") from error
 
     async def encoded_events():
         events = cast(
             AsyncGenerator[BaseEvent],
-            coordinator.stream(plan, dataset_conversation_id, chat_session_id, input_data),
+            service.run(dataset_conversation_id, chat_session_id, input_data),
         )
         try:
             async with aclosing(events):
@@ -217,156 +207,3 @@ async def run_agent(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-@router.get(
-    "/dataset-conversations/{dataset_conversation_id}/chat-sessions/{chat_session_id}/runs/{run_id}/events",
-    response_class=StreamingResponse,
-    responses={200: {"content": {"text/event-stream": {}}}},
-)
-@inject
-async def run_events(
-    dataset_conversation_id: Annotated[int, Path(gt=0)],
-    chat_session_id: Annotated[int, Path(gt=0)],
-    run_id: str,
-    request: Request,
-    service: FromDishka[ChatSessionService],
-    run_adapter: FromDishka[ChatSessionRunAdapter],
-) -> StreamingResponse:
-    session = await service.get(
-        ChatSessionServiceGetParams(
-            dataset_conversation_id=dataset_conversation_id, chat_session_id=chat_session_id
-        )
-    )
-    run = await run_adapter.get_run(chat_session_id, run_id) if session else None
-    if session is None or run is None or not run.temporal_workflow_id:
-        raise HTTPException(404, "Run not found")
-    try:
-        await run_adapter.preflight()  # preflight before returning a 200 stream
-        candidates = await run_adapter.candidate_names(dataset_conversation_id, chat_session_id)
-    except TemporalUnavailableError as error:
-        raise HTTPException(503, "Temporal is unavailable") from error
-    sources = {f"candidate:{name}" for name in candidates} | {"reviewer"}
-    cursor = run_adapter.decode_cursor(request.headers.get("last-event-id"), sources)
-    encoder = EventEncoder(request.headers.get("accept") or "text/event-stream")
-
-    async def encoded_events():
-        assert run.temporal_workflow_id is not None
-        async for event in run_adapter.stream_events(
-            run.temporal_workflow_id, f"chat:{chat_session_id}", run_id, candidates, cursor
-        ):
-            yield _encode_event(encoder, event)
-
-    return StreamingResponse(
-        encoded_events(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
-@router.get(
-    "/dataset-conversations/{dataset_conversation_id}/chat-sessions/{chat_session_id}/runs/{run_id}"
-)
-@inject
-async def describe_run(
-    dataset_conversation_id: int,
-    chat_session_id: int,
-    run_id: str,
-    service: FromDishka[ChatSessionService],
-    run_adapter: FromDishka[ChatSessionRunAdapter],
-):
-    if (
-        await service.get(
-            ChatSessionServiceGetParams(
-                dataset_conversation_id=dataset_conversation_id, chat_session_id=chat_session_id
-            )
-        )
-        is None
-    ):
-        raise HTTPException(404, "Run not found")
-    run = await run_adapter.get_run(chat_session_id, run_id)
-    if run is None:
-        raise HTTPException(404, "Run not found")
-    try:
-        description = await (
-            await run_adapter.handle(
-                run.temporal_workflow_id or f"ensemble:{chat_session_id}:{run_id}"
-            )
-        ).describe()
-        temporal_status = str(getattr(description, "status", "unknown"))
-    except TemporalUnavailableError as error:
-        raise HTTPException(503, "Temporal is unavailable") from error
-    return {
-        "run_id": run.run_id,
-        "status": run.status,
-        "temporal_status": temporal_status,
-        "workflow_id": run.temporal_workflow_id,
-        "diagnostics": json.loads(run.diagnostics_json) if run.diagnostics_json else None,
-        "error": run.error,
-    }
-
-
-@router.get(
-    "/dataset-conversations/{dataset_conversation_id}/chat-sessions/{chat_session_id}/runs/{run_id}/result"
-)
-@inject
-async def run_result(
-    dataset_conversation_id: int,
-    chat_session_id: int,
-    run_id: str,
-    service: FromDishka[ChatSessionService],
-    run_adapter: FromDishka[ChatSessionRunAdapter],
-):
-    if (
-        await service.get(
-            ChatSessionServiceGetParams(
-                dataset_conversation_id=dataset_conversation_id, chat_session_id=chat_session_id
-            )
-        )
-        is None
-    ):
-        raise HTTPException(404, "Run not found")
-    run = await run_adapter.get_run(chat_session_id, run_id)
-    if run is None:
-        raise HTTPException(404, "Run not found")
-    if run.status != "completed":
-        raise HTTPException(409, "Run result is not ready")
-    return {
-        "run_id": run_id,
-        "assistant_message_id": run.assistant_message_id,
-        "diagnostics": json.loads(run.diagnostics_json) if run.diagnostics_json else None,
-    }
-
-
-@router.delete(
-    "/dataset-conversations/{dataset_conversation_id}/chat-sessions/{chat_session_id}/runs/{run_id}",
-    status_code=204,
-)
-@inject
-async def cancel_run(
-    dataset_conversation_id: int,
-    chat_session_id: int,
-    run_id: str,
-    service: FromDishka[ChatSessionService],
-    run_adapter: FromDishka[ChatSessionRunAdapter],
-):
-    if (
-        await service.get(
-            ChatSessionServiceGetParams(
-                dataset_conversation_id=dataset_conversation_id, chat_session_id=chat_session_id
-            )
-        )
-        is None
-    ):
-        raise HTTPException(404, "Run not found")
-    run = await run_adapter.get_run(chat_session_id, run_id)
-    if run is None:
-        raise HTTPException(404, "Run not found")
-    try:
-        await run_adapter.cancel(
-            chat_session_id,
-            run_id,
-            run.temporal_workflow_id or f"ensemble:{chat_session_id}:{run_id}",
-        )
-    except TemporalUnavailableError as error:
-        raise HTTPException(503, "Temporal is unavailable") from error

@@ -13,17 +13,6 @@ def _validate_message(message: object) -> _ExecutionMessage | None:
         return None
 
 
-def message_text(message: object) -> str:
-    """Extract text from both AG-UI strings and TanStack text-part content."""
-    parsed = _validate_message(message)
-    if parsed is None:
-        return ""
-    content = parsed.content
-    if isinstance(content, str):
-        return content.strip()
-    return "".join(part.text for part in content).strip()
-
-
 def newest_user_message(input_data: RunAgentInput) -> tuple[str, str | None] | None:
     """Return the newest nonblank user text and its client message ID."""
     for message in reversed(input_data.messages):

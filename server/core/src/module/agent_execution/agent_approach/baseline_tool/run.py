@@ -13,25 +13,24 @@ from ag_ui.core import (
 from agents import RunResultStreaming
 from agents.items import ToolCallItem, ToolCallOutputItem
 from agents.stream_events import RunItemStreamEvent
-from openai.types.responses import ResponseFunctionToolCall
 from src.module.agent_execution.agent_approach.baseline_tool.context.registry import (
     resolve as resolve_context,
 )
 from src.module.agent_execution.agent_approach.baseline_tool.prompts.registry import (
     resolve as resolve_prompt,
 )
-from src.module.agent_execution.agent_approach.shared.agent_definition import build_agent
-from src.module.agent_execution.agent_execution_constants import AgentApproach
+from src.module.agent_execution.agent_approach.baseline_tool.tools.calculator import calculator
+from src.module.agent_execution.agent_approach.shared.agent_builder import build_agent
+from src.module.agent_execution.agent_approach.shared.base_agent_approach import BaseAgentApproach
 from src.module.agent_execution.agent_execution_repository_schema import ConversationMessage
 from src.module.agent_execution.agent_execution_runner_schema import (
     ApproachInput,
     PromptVersion,
     RenderedContext,
 )
-from src.module.agent_execution.execution.direct.agents_execution import AgentsApproach
 
 
-class BaselineToolApproach(AgentsApproach):
+class BaselineToolApproach(BaseAgentApproach):
     def resolve_prompt(self, prompt_id: str = "baseline-tool:v1") -> PromptVersion:
         return resolve_prompt(prompt_id)
 
@@ -45,15 +44,16 @@ class BaselineToolApproach(AgentsApproach):
         return resolve_context(version, document, transcript, question)
 
     def stream(self, input_data: ApproachInput) -> AsyncIterator[BaseEvent]:
-        agent, max_turns = build_agent(
-            AgentApproach.BASELINE_TOOL,
+        agent = build_agent(
             name="ConvFinQA baseline-tool document assistant",
             model=input_data.model,
             instructions=input_data.prompt.instructions,
+            tools=[calculator],
+            require_tool=True,
         )
         return self._events_with_tools(
             input_data,
-            self._stream(input_data, agent, max_turns, "ConvFinQA baseline-tool document chat"),
+            self._stream(input_data, agent, 4, "ConvFinQA baseline-tool document chat"),
         )
 
     async def _events_with_tools(
@@ -76,16 +76,30 @@ class BaselineToolApproach(AgentsApproach):
                     isinstance(event, RunItemStreamEvent)
                     and event.name == "tool_called"
                     and isinstance(event.item, ToolCallItem)
-                    and isinstance(event.item.raw_item, ResponseFunctionToolCall)
                 ):
                     raw = event.item.raw_item
+                    call_id = (
+                        raw.get("call_id", raw.get("tool_call_id"))
+                        if isinstance(raw, dict)
+                        else getattr(raw, "call_id", getattr(raw, "tool_call_id", None))
+                    )
+                    name = (
+                        raw.get("name", "") if isinstance(raw, dict) else getattr(raw, "name", "")
+                    )
+                    arguments = (
+                        raw.get("arguments", "")
+                        if isinstance(raw, dict)
+                        else getattr(raw, "arguments", "")
+                    )
+                    if not call_id:
+                        continue
                     yield ToolCallStartEvent(
-                        tool_call_id=raw.call_id,
-                        tool_call_name=raw.name,
+                        tool_call_id=str(call_id),
+                        tool_call_name=str(name),
                         parent_message_id=data.assistant_message_id,
                     )
-                    yield ToolCallArgsEvent(tool_call_id=raw.call_id, delta=raw.arguments)
-                    yield ToolCallEndEvent(tool_call_id=raw.call_id)
+                    yield ToolCallArgsEvent(tool_call_id=str(call_id), delta=str(arguments))
+                    yield ToolCallEndEvent(tool_call_id=str(call_id))
                 elif (
                     isinstance(event, RunItemStreamEvent)
                     and event.name == "tool_output"

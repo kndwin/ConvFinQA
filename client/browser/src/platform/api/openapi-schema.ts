@@ -276,7 +276,7 @@ export interface components {
          * AgentApproach
          * @enum {string}
          */
-        AgentApproach: "baseline" | "baseline-tool" | "program-of-thought" | "ensemble";
+        AgentApproach: "baseline" | "baseline-tool" | "program-of-thought";
         /**
          * AssistantMessage
          * @description An assistant message.
@@ -371,8 +371,6 @@ export interface components {
             model: components["schemas"]["OpenAIModel"];
             /** Tags */
             tags?: components["schemas"]["ChatSessionTagInput"][];
-            /** Ensemble Candidates */
-            ensemble_candidates?: components["schemas"]["AgentApproach"][] | null;
         };
         /** ChatSessionGroupConfig */
         ChatSessionGroupConfig: {
@@ -380,8 +378,6 @@ export interface components {
             model: components["schemas"]["OpenAIModel"];
             /** Tags */
             tags?: components["schemas"]["ChatSessionTagInput"][];
-            /** Ensemble Candidates */
-            ensemble_candidates?: components["schemas"]["AgentApproach"][] | null;
         };
         /** ChatSessionGroupCreateRequest */
         ChatSessionGroupCreateRequest: {
@@ -428,7 +424,6 @@ export interface components {
             /** Context Version */
             context_version: string;
             model: components["schemas"]["OpenAIModel"];
-            ensemble_config_json?: components["schemas"]["EnsembleConfig"] | null;
             /**
              * Created At
              * Format: date-time
@@ -464,7 +459,9 @@ export interface components {
         /** ChatSessionUpdateRequest */
         ChatSessionUpdateRequest: {
             /** Title */
-            title: string | null;
+            title?: string | null;
+            /** Tags */
+            tags?: components["schemas"]["ChatSessionTagInput"][] | null;
         };
         /**
          * Context
@@ -547,61 +544,6 @@ export interface components {
             metadata?: unknown | null;
         } & {
             [key: string]: unknown;
-        };
-        /** EnsembleCandidate */
-        EnsembleCandidate: {
-            approach: components["schemas"]["AgentApproach"];
-            /** Prompt Version */
-            prompt_version: string;
-            /**
-             * Prompt Hash
-             * @default
-             */
-            prompt_hash: string;
-            /** Context Version */
-            context_version: string;
-            /**
-             * Context Hash
-             * @default
-             */
-            context_hash: string;
-            /**
-             * Name
-             * @default
-             */
-            name: string;
-            /**
-             * Instructions
-             * @default
-             */
-            instructions: string;
-            /**
-             * Rendered Context
-             * @default
-             */
-            rendered_context: string;
-            /**
-             * Model
-             * @default
-             */
-            model: string;
-            /** Trace Metadata */
-            trace_metadata?: {
-                [key: string]: string;
-            };
-        };
-        /**
-         * EnsembleConfig
-         * @description The complete, pinned configuration stored on an ensemble session.
-         */
-        EnsembleConfig: {
-            /** Candidates */
-            candidates: components["schemas"]["EnsembleCandidate"][];
-            /**
-             * Reviewer Prompt Version
-             * @default ensemble-reviewer:v1
-             */
-            reviewer_prompt_version: string;
         };
         /**
          * FunctionCall
@@ -897,6 +839,8 @@ export interface operations {
                 offset?: number;
                 /** @description Maximum results to return */
                 limit?: number;
+                /** @description Chat session tags (OR filtered) */
+                tags?: string[] | null;
             };
             header?: never;
             path?: never;

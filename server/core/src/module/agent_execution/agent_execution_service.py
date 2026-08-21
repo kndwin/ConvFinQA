@@ -1,20 +1,17 @@
 from collections.abc import AsyncIterator
 
 from ag_ui.core import BaseEvent
-from openai import AsyncOpenAI
+from agents.models.interface import ModelProvider
 
 from src.module.agent_execution.agent_approach.baseline.run import BaselineApproach
 from src.module.agent_execution.agent_approach.baseline_tool.run import BaselineToolApproach
+from src.module.agent_execution.agent_approach.evidence.run import EvidenceApproach
 from src.module.agent_execution.agent_approach.program_of_thought.run import (
     ProgramOfThoughtApproach,
-)
-from src.module.agent_execution.agent_approach.shared.tools.code_execution.openai_provider import (
-    OpenAICodeExecutionProvider,
 )
 from src.module.agent_execution.agent_approach.shared.tools.code_execution.provider import (
     CodeExecutionProvider,
 )
-from src.module.agent_execution.agent_execution_constants import AgentApproach
 from src.module.agent_execution.agent_execution_repository import AgentExecutionRepository
 from src.module.agent_execution.agent_execution_runner import AgentExecutionRunner
 from src.module.agent_execution.agent_execution_service_schema import AgentExecutionServiceRunParams
@@ -23,21 +20,18 @@ from src.module.agent_execution.agent_execution_service_schema import AgentExecu
 class AgentExecutionService:
     def __init__(
         self,
-        client: AsyncOpenAI | None,
+        model_provider: ModelProvider | None,
         code_execution_provider: CodeExecutionProvider | None = None,
     ) -> None:
-        # Keep the approach present even when configuration is absent.  The runner
-        # owns the common configuration error (and can therefore report it for
-        # every approach consistently).
-        program = ProgramOfThoughtApproach(
-            client, code_execution_provider or OpenAICodeExecutionProvider()
+        program = (
+            ProgramOfThoughtApproach(model_provider, code_execution_provider)
+            if code_execution_provider is not None
+            else None
         )
         self.runner = AgentExecutionRunner(
-            BaselineApproach(client), BaselineToolApproach(client), program
+            BaselineApproach(model_provider), BaselineToolApproach(model_provider), program,
+            EvidenceApproach(model_provider)
         )
-
-    def resolve_approach(self, value: AgentApproach):
-        return self.runner.resolve_approach(value)
 
     async def run(
         self, params: AgentExecutionServiceRunParams, repository: AgentExecutionRepository

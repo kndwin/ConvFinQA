@@ -1,3 +1,3 @@
-from src.platform.openai.client import openai_client
+from src.platform.openai.model_provider import model_provider
 
-__all__ = ["openai_client"]
+__all__ = ["model_provider"]

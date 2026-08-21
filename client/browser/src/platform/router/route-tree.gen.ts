@@ -9,48 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './root.route'
-import { Route as moduleDatasetConversationsListDatasetConversationDotrouteRouteImport } from './../../module/dataset-conversations/list/dataset-conversation.route'
-import { Route as moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRouteImport } from './../../module/dataset-conversations/chat-session-groups/chat-session-group-detail.route'
-import { Route as moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRouteImport } from './../../module/dataset-conversations/detail/dataset-conversation-detail.route'
+import { Route as moduleDatasetDatasetConversationDotrouteRouteImport } from './../../module/dataset/dataset-conversation.route'
+import { Route as moduleChatGroupChatSessionGroupDetailDotrouteRouteImport } from './../../module/chat-group/chat-session-group-detail.route'
+import { Route as moduleDatasetDatasetConversationDetailDotrouteRouteImport } from './../../module/dataset/dataset-conversation-detail.route'
 
-const moduleDatasetConversationsListDatasetConversationDotrouteRoute =
-  moduleDatasetConversationsListDatasetConversationDotrouteRouteImport.update({
+const moduleDatasetDatasetConversationDotrouteRoute =
+  moduleDatasetDatasetConversationDotrouteRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute =
-  moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRouteImport.update(
-    {
-      id: '/chat-session-groups/$chatSessionGroupId',
-      path: '/chat-session-groups/$chatSessionGroupId',
-      getParentRoute: () => rootRouteImport,
-    } as any,
-  )
-const moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute =
-  moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRouteImport.update(
-    {
-      id: '/dataset-conversations/$datasetConversationId',
-      path: '/dataset-conversations/$datasetConversationId',
-      getParentRoute: () => rootRouteImport,
-    } as any,
-  )
+const moduleChatGroupChatSessionGroupDetailDotrouteRoute =
+  moduleChatGroupChatSessionGroupDetailDotrouteRouteImport.update({
+    id: '/chat-session-groups/$chatSessionGroupId',
+    path: '/chat-session-groups/$chatSessionGroupId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const moduleDatasetDatasetConversationDetailDotrouteRoute =
+  moduleDatasetDatasetConversationDetailDotrouteRouteImport.update({
+    id: '/dataset-conversations/$datasetConversationId',
+    path: '/dataset-conversations/$datasetConversationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof moduleDatasetConversationsListDatasetConversationDotrouteRoute
-  '/chat-session-groups/$chatSessionGroupId': typeof moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute
-  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute
+  '/': typeof moduleDatasetDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof moduleChatGroupChatSessionGroupDetailDotrouteRoute
+  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetDatasetConversationDetailDotrouteRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof moduleDatasetConversationsListDatasetConversationDotrouteRoute
-  '/chat-session-groups/$chatSessionGroupId': typeof moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute
-  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute
+  '/': typeof moduleDatasetDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof moduleChatGroupChatSessionGroupDetailDotrouteRoute
+  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetDatasetConversationDetailDotrouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof moduleDatasetConversationsListDatasetConversationDotrouteRoute
-  '/chat-session-groups/$chatSessionGroupId': typeof moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute
-  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute
+  '/': typeof moduleDatasetDatasetConversationDotrouteRoute
+  '/chat-session-groups/$chatSessionGroupId': typeof moduleChatGroupChatSessionGroupDetailDotrouteRoute
+  '/dataset-conversations/$datasetConversationId': typeof moduleDatasetDatasetConversationDetailDotrouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,9 +67,9 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  moduleDatasetConversationsListDatasetConversationDotrouteRoute: typeof moduleDatasetConversationsListDatasetConversationDotrouteRoute
-  moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute: typeof moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute
-  moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute: typeof moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute
+  moduleDatasetDatasetConversationDotrouteRoute: typeof moduleDatasetDatasetConversationDotrouteRoute
+  moduleChatGroupChatSessionGroupDetailDotrouteRoute: typeof moduleChatGroupChatSessionGroupDetailDotrouteRoute
+  moduleDatasetDatasetConversationDetailDotrouteRoute: typeof moduleDatasetDatasetConversationDetailDotrouteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,33 +78,33 @@ declare module '@tanstack/react-router' {
       id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof moduleDatasetConversationsListDatasetConversationDotrouteRouteImport
+      preLoaderRoute: typeof moduleDatasetDatasetConversationDotrouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat-session-groups/$chatSessionGroupId': {
       id: '/chat-session-groups/$chatSessionGroupId'
       path: '/chat-session-groups/$chatSessionGroupId'
       fullPath: '/chat-session-groups/$chatSessionGroupId'
-      preLoaderRoute: typeof moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRouteImport
+      preLoaderRoute: typeof moduleChatGroupChatSessionGroupDetailDotrouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dataset-conversations/$datasetConversationId': {
       id: '/dataset-conversations/$datasetConversationId'
       path: '/dataset-conversations/$datasetConversationId'
       fullPath: '/dataset-conversations/$datasetConversationId'
-      preLoaderRoute: typeof moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRouteImport
+      preLoaderRoute: typeof moduleDatasetDatasetConversationDetailDotrouteRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  moduleDatasetConversationsListDatasetConversationDotrouteRoute:
-    moduleDatasetConversationsListDatasetConversationDotrouteRoute,
-  moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute:
-    moduleDatasetConversationsChatSessionGroupsChatSessionGroupDetailDotrouteRoute,
-  moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute:
-    moduleDatasetConversationsDetailDatasetConversationDetailDotrouteRoute,
+  moduleDatasetDatasetConversationDotrouteRoute:
+    moduleDatasetDatasetConversationDotrouteRoute,
+  moduleChatGroupChatSessionGroupDetailDotrouteRoute:
+    moduleChatGroupChatSessionGroupDetailDotrouteRoute,
+  moduleDatasetDatasetConversationDetailDotrouteRoute:
+    moduleDatasetDatasetConversationDetailDotrouteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -27,7 +27,7 @@ from src.platform.database.models import (
     ChatSessionTable,
     ChatSessionToGroupTable,
 )
-from src.platform.observability import Observability
+from src.platform.observability import Observability, trace_method
 from src.platform.service import BaseService
 
 
@@ -44,29 +44,35 @@ class ChatSessionGroupService(BaseService):
         self.chat_sessions = chat_sessions
         self.dataset_conversations = dataset_conversations
 
+    @trace_method("chat_session_group.service.list")
     async def list(
         self, params: ChatSessionGroupServiceListParams
     ) -> builtins.list[tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]]]:
         return await self.repository.list(params)
 
+    @trace_method("chat_session_group.service.get")
     async def get(
         self, params: ChatSessionGroupServiceGetParams
     ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.get(params)
 
+    @trace_method("chat_session_group.service.get_by_id")
     async def get_by_id(
         self, params: ChatSessionGroupServiceGetByIdParams
     ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.get_by_id(params)
 
+    @trace_method("chat_session_group.service.update")
     async def update(
         self, params: ChatSessionGroupServiceUpdateParams
     ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
         return await self.repository.update(params)
 
+    @trace_method("chat_session_group.service.delete")
     async def delete(self, params: ChatSessionGroupServiceDeleteParams) -> bool:
         return await self.repository.delete(params)
 
+    @trace_method("chat_session_group.service.create")
     async def create(
         self, params: ChatSessionGroupServiceCreateParams
     ) -> tuple[ChatSessionGroupTable, builtins.list[ChatSessionTable]] | None:
@@ -93,7 +99,6 @@ class ChatSessionGroupService(BaseService):
                         dataset_conversation_id=params.dataset_conversation_id,
                         agent_approach=config.agent_approach,
                         model=config.model,
-                        ensemble_candidates=config.ensemble_candidates,
                         tags=config.tags,
                     ),
                     commit=False,

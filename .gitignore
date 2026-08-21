@@ -10,3 +10,6 @@ __pycache__/
 *.py[cod]
 /internal/otel-cli/otel-cli
 /server/core/evals/.report/
+/server/core/evals/logs/
+/server/core/evals/.ruff_cache/
+/server/core/evals/.env

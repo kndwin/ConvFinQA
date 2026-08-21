@@ -11,7 +11,7 @@ from ag_ui.core import (
     ToolCallStartEvent,
 )
 from agents import RunResultStreaming
-from openai import AsyncOpenAI
+from agents.models.interface import ModelProvider
 
 from src.module.agent_execution.agent_approach.program_of_thought.context.registry import (
     resolve as resolve_context,
@@ -19,25 +19,27 @@ from src.module.agent_execution.agent_approach.program_of_thought.context.regist
 from src.module.agent_execution.agent_approach.program_of_thought.prompts.registry import (
     resolve as resolve_prompt,
 )
-from src.module.agent_execution.agent_approach.shared.agent_definition import build_agent
+from src.module.agent_execution.agent_approach.program_of_thought.structured_output import (
+    ProgramNode,
+)
+from src.module.agent_execution.agent_approach.shared.agent_builder import build_agent
+from src.module.agent_execution.agent_approach.shared.base_agent_approach import BaseAgentApproach
 from src.module.agent_execution.agent_approach.shared.tools.code_execution.provider import (
     CodeExecutionProvider,
 )
-from src.module.agent_execution.agent_execution_constants import AgentApproach
 from src.module.agent_execution.agent_execution_repository_schema import ConversationMessage
 from src.module.agent_execution.agent_execution_runner_schema import (
     ApproachInput,
     PromptVersion,
     RenderedContext,
 )
-from src.module.agent_execution.execution.direct.agents_execution import AgentsApproach
 
 
-class ProgramOfThoughtApproach(AgentsApproach):
+class ProgramOfThoughtApproach(BaseAgentApproach):
     def __init__(
-        self, client: AsyncOpenAI | None, execution_provider: CodeExecutionProvider
+        self, model_provider: ModelProvider | None, execution_provider: CodeExecutionProvider
     ) -> None:
-        super().__init__(client)
+        super().__init__(model_provider)
         self.execution_provider = execution_provider
 
     def resolve_prompt(self, prompt_id: str = "program-of-thought:v1") -> PromptVersion:
@@ -53,21 +55,26 @@ class ProgramOfThoughtApproach(AgentsApproach):
         return resolve_context(version, document, transcript, question)
 
     def stream(self, input_data: ApproachInput) -> AsyncIterator[BaseEvent]:
-        # Retain custom providers for streaming normalization; the default OpenAI
-        # provider has the same hosted Code Interpreter definition in the builder.
-        agent, max_turns = build_agent(
-            AgentApproach.PROGRAM_OF_THOUGHT,
+        if input_data.prompt.id == "program-of-thought:v3":
+            agent = build_agent(
+                name="ConvFinQA program-of-thought v3 document assistant",
+                model=input_data.model,
+                instructions=input_data.prompt.instructions,
+                output_type=ProgramNode,
+            )
+            return self._events_structured(
+                input_data, self._stream(input_data, agent, 1, "ConvFinQA POT v3 document chat")
+            )
+        agent = build_agent(
             name="ConvFinQA program-of-thought document assistant",
             model=input_data.model,
             instructions=input_data.prompt.instructions,
+            tools=[self.execution_provider.tool()],
+            require_tool=True,
         )
-        if self.execution_provider.__class__.__name__ != "OpenAICodeExecutionProvider":
-            agent.tools = [self.execution_provider.tool()]
         return self._events_with_code(
             input_data,
-            self._stream(
-                input_data, agent, max_turns, "ConvFinQA program-of-thought document chat"
-            ),
+            self._stream(input_data, agent, 4, "ConvFinQA program-of-thought document chat"),
         )
 
     async def _events_with_code(

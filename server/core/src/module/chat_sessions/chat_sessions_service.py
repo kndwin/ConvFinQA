@@ -45,14 +45,7 @@ class ChatSessionService(BaseService):
         self.dataset_conversation_repository = dataset_conversation_repository
         self.agent_execution_service = agent_execution_service
 
-    async def get_by_ids(self, dataset_conversation_id: int, chat_session_id: int):
-        return await self.chat_session_repository.get(
-            ChatSessionRepositoryGetParams(
-                dataset_conversation_id=dataset_conversation_id,
-                chat_session_id=chat_session_id,
-            )
-        )
-
+    @trace_method("chat_session.service.run")
     async def run(
         self, dataset_conversation_id: int, chat_session_id: int, input_data: RunAgentInput
     ) -> AsyncIterator[BaseEvent]:
@@ -102,7 +95,9 @@ class ChatSessionService(BaseService):
                 ),
             )
 
-        repository = CallbackAgentExecutionRepository(messages, append_user, append_assistant)
+        repository = CallbackAgentExecutionRepository(
+            messages, append_user, append_assistant, observability=self.observability
+        )
         try:
             approach = AgentApproach(session.agent_approach)
         except ValueError:
