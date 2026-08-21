@@ -19,14 +19,14 @@ const pages = new cloudflare.PagesProject("convfinqa", {
       productionBranch: "main",
       productionDeploymentsEnabled: true,
       previewDeploymentSetting: "all",
-      pathIncludes: ["client/**"],
+      pathIncludes: ["client/browser/*", "infra/prod/cloudflare.ts"],
       prCommentsEnabled: false,
     },
   },
   buildConfig: {
     buildCommand: "pnpm build",
     destinationDir: "dist",
-    rootDir: "client",
+    rootDir: "client/browser",
     buildCaching: true,
   },
   deploymentConfigs: {
