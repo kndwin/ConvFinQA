@@ -18,7 +18,7 @@ export default defineRailway((ctx) => {
       service("ConvFinQA", {
         source: github("kndwin/ConvFinQA", {
           branch: "main",
-          rootDirectory: "server",
+          rootDirectory: "server/core",
         }),
         build: {
           buildCommand: "uv sync --frozen --no-dev",
