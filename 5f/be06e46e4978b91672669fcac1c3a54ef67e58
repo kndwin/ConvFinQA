@@ -1,0 +1,21 @@
+infra/local/README.md
+  s_fdc303ff594ae5::t_9ae168bb1bda6a 1-22
+internal/otel-cli/README.md
+  s_fdc303ff594ae5::t_05f9301dc17332 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "5fbe06e46e4978b91672669fcac1c3a54ef67e58",
+  "prompts": {},
+  "sessions": {
+    "s_fdc303ff594ae5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3562b550-1fe5-4251-8502-c2fe040b4582",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
