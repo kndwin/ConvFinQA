@@ -1,0 +1,19 @@
+.gitignore
+  s_fdc303ff594ae5::t_7a1d5af053a985 1-5,10-14,18-19,23-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "2e4701af647a79dd9af988698c78db269d2d8f05",
+  "prompts": {},
+  "sessions": {
+    "s_fdc303ff594ae5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3562b550-1fe5-4251-8502-c2fe040b4582",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kevin <kevin@sucasa.com.au>"
+    }
+  }
+}
