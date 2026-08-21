@@ -1,15 +1,41 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node/frontend build artifacts
 node_modules/
 dist/
 storybook-static/
 .lint-generated/
+.tanstack/
+.vite/
+coverage/
+
+# Environment files
 .env
 .env.*
 !.env.example
+
+# Python tooling and caches
 .venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.import_linter_cache/
+.deepeval/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local infrastructure state
+.wrangler/
+.pulumi/
+
+# Project-specific generated files
 /internal/otel-cli/otel-cli
 /server/core/evals/.report/
 /server/core/evals/logs/
-/server/core/evals/.ruff_cache/
 /server/core/evals/.env
